@@ -17,6 +17,7 @@
 
 package org.apache.commons.pool2;
 
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.NoSuchElementException;
@@ -24,8 +25,7 @@ import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
-import org.apache.commons.pool2.BaseKeyedPooledObjectFactory;
-import org.apache.commons.pool2.PooledObject;
+
 import org.apache.commons.pool2.impl.BaseObjectPoolConfig;
 import org.apache.commons.pool2.impl.DefaultPooledObject;
 import org.apache.commons.pool2.impl.GenericKeyedObjectPool;
@@ -39,71 +39,6 @@ import org.apache.commons.pool2.impl.GenericKeyedObjectPoolConfig;
  * negatively since you need to run it for a while.
  */
 public final class ObjectPoolIssue326 {
-    public static void main(final String[] args) {
-        try {
-            new ObjectPoolIssue326().run();
-        } catch (final Exception e) {
-            e.printStackTrace();
-        }
-    }
-
-    private void run() throws Exception {
-        final GenericKeyedObjectPoolConfig poolConfig = new GenericKeyedObjectPoolConfig();
-        poolConfig.setMaxTotal(10);
-        poolConfig.setMaxTotalPerKey(5);
-        poolConfig.setMinIdlePerKey(-1);
-        poolConfig.setMaxIdlePerKey(-1);
-        poolConfig.setLifo(true);
-        poolConfig.setFairness(true);
-        poolConfig.setMaxWaitMillis(30 * 1000);
-        poolConfig.setMinEvictableIdleTimeMillis(-1);
-        poolConfig.setSoftMinEvictableIdleTimeMillis(-1);
-        poolConfig.setNumTestsPerEvictionRun(1);
-        poolConfig.setTestOnCreate(false);
-        poolConfig.setTestOnBorrow(false);
-        poolConfig.setTestOnReturn(false);
-        poolConfig.setTestWhileIdle(false);
-        poolConfig.setTimeBetweenEvictionRunsMillis(5 * 1000);
-        poolConfig.setEvictionPolicyClassName(BaseObjectPoolConfig.DEFAULT_EVICTION_POLICY_CLASS_NAME);
-        poolConfig.setBlockWhenExhausted(false);
-        poolConfig.setJmxEnabled(false);
-        poolConfig.setJmxNameBase(null);
-        poolConfig.setJmxNamePrefix(null);
-
-        final GenericKeyedObjectPool<Integer, Object> pool = new GenericKeyedObjectPool<>(new ObjectFactory(), poolConfig);
-
-        // number of threads to reproduce is finicky. this count seems to be best for my
-        // 4 core box.
-        // too many doesn't reproduce it ever, too few doesn't either.
-        final ExecutorService service = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors() * 2);
-        final long startTime = System.currentTimeMillis();
-        long testIter = 0;
-        try {
-            while (true) {
-                testIter++;
-                if (testIter % 1000 == 0) {
-                    System.out.println(testIter);
-                }
-                final List<Task> tasks = createTasks(pool);
-                final List<Future<Object>> futures = service.invokeAll(tasks);
-                for (final Future<Object> future : futures) {
-                    future.get();
-                }
-            }
-        } finally {
-            System.out.println("Time: " + (System.currentTimeMillis() - startTime) / 1000.0);
-            service.shutdown();
-        }
-    }
-
-    private List<Task> createTasks(final GenericKeyedObjectPool<Integer, Object> pool) {
-        final List<Task> tasks = new ArrayList<>();
-        for (int i = 0; i < 250; i++) {
-            tasks.add(new Task(pool, i));
-        }
-        return tasks;
-    }
-
     private class ObjectFactory extends BaseKeyedPooledObjectFactory<Integer, Object> {
         @Override
         public Object create(final Integer s) throws Exception {
@@ -116,9 +51,6 @@ public final class ObjectPoolIssue326 {
         }
     }
 
-    private class TestObject {
-    }
-
     private class Task implements Callable<Object> {
         private final GenericKeyedObjectPool<Integer, Object> m_pool;
         private final int m_key;
@@ -128,10 +60,18 @@ public final class ObjectPoolIssue326 {
             m_key = count % 20;
         }
 
+        private void busyWait(final long timeMillis) {
+            // busy waiting intentionally as a simple thread.sleep fails to reproduce
+            final long endTimeMillis = System.currentTimeMillis() + timeMillis;
+            while (System.currentTimeMillis() < endTimeMillis) {
+                // empty
+            }
+        }
+
         @Override
         public Object call() throws Exception {
             try {
-                Object value;
+                final Object value;
                 value = m_pool.borrowObject(m_key);
                 // don't make this too long or it won't reproduce, and don't make it zero or it
                 // won't reproduce
@@ -146,13 +86,73 @@ public final class ObjectPoolIssue326 {
                 return "exhausted";
             }
         }
+    }
 
-        private void busyWait(final long timeMillis) {
-            // busy waiting intentionally as a simple thread.sleep fails to reproduce
-            final long endTime = System.currentTimeMillis() + timeMillis;
-            while (System.currentTimeMillis() < endTime) {
-                // empty
+    private class TestObject {
+    }
+
+    public static void main(final String[] args) {
+        try {
+            new ObjectPoolIssue326().run();
+        } catch (final Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    private List<Task> createTasks(final GenericKeyedObjectPool<Integer, Object> pool) {
+        final List<Task> tasks = new ArrayList<>();
+        for (int i = 0; i < 250; i++) {
+            tasks.add(new Task(pool, i));
+        }
+        return tasks;
+    }
+
+    private void run() throws Exception {
+        final GenericKeyedObjectPoolConfig<Object> poolConfig = new GenericKeyedObjectPoolConfig<>();
+        poolConfig.setMaxTotal(10);
+        poolConfig.setMaxTotalPerKey(5);
+        poolConfig.setMinIdlePerKey(-1);
+        poolConfig.setMaxIdlePerKey(-1);
+        poolConfig.setLifo(true);
+        poolConfig.setFairness(true);
+        poolConfig.setMaxWait(Duration.ofSeconds(30));
+        poolConfig.setMinEvictableIdleTime(Duration.ofMillis(-1));
+        poolConfig.setSoftMinEvictableIdleTime(Duration.ofMillis(-1));
+        poolConfig.setNumTestsPerEvictionRun(1);
+        poolConfig.setTestOnCreate(false);
+        poolConfig.setTestOnBorrow(false);
+        poolConfig.setTestOnReturn(false);
+        poolConfig.setTestWhileIdle(false);
+        poolConfig.setTimeBetweenEvictionRuns(Duration.ofSeconds(5));
+        poolConfig.setEvictionPolicyClassName(BaseObjectPoolConfig.DEFAULT_EVICTION_POLICY_CLASS_NAME);
+        poolConfig.setBlockWhenExhausted(false);
+        poolConfig.setJmxEnabled(false);
+        poolConfig.setJmxNameBase(null);
+        poolConfig.setJmxNamePrefix(null);
+
+        final GenericKeyedObjectPool<Integer, Object> pool = new GenericKeyedObjectPool<>(new ObjectFactory(), poolConfig);
+
+        // number of threads to reproduce is finicky. this count seems to be best for my
+        // 4 core box.
+        // too many doesn't reproduce it ever, too few doesn't either.
+        final ExecutorService service = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors() * 2);
+        final long startTimeMillis = System.currentTimeMillis();
+        long testIter = 0;
+        try {
+            while (true) {
+                testIter++;
+                if (testIter % 1000 == 0) {
+                    System.out.println(testIter);
+                }
+                final List<Task> tasks = createTasks(pool);
+                final List<Future<Object>> futures = service.invokeAll(tasks);
+                for (final Future<Object> future : futures) {
+                    future.get();
+                }
             }
+        } finally {
+            System.out.println("Time: " + (System.currentTimeMillis() - startTimeMillis) / 1000.0);
+            service.shutdown();
         }
     }
 }

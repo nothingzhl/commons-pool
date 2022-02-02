@@ -43,7 +43,7 @@ final class TestSynchronizedPooledObjectFactory<T> implements PooledObjectFactor
 	private final PooledObjectFactory<T> factory;
 
 	/**
-	 * Create a SynchronizedPoolableObjectFactory wrapping the given factory.
+	 * Constructs a SynchronizedPoolableObjectFactory wrapping the given factory.
 	 *
 	 * @param factory
 	 *            underlying factory to wrap
@@ -61,10 +61,10 @@ final class TestSynchronizedPooledObjectFactory<T> implements PooledObjectFactor
 	 * {@inheritDoc}
 	 */
 	@Override
-	public PooledObject<T> makeObject() throws Exception {
+	public void activateObject(final PooledObject<T> p) throws Exception {
 		writeLock.lock();
 		try {
-			return factory.makeObject();
+			factory.activateObject(p);
 		} finally {
 			writeLock.unlock();
 		}
@@ -87,23 +87,10 @@ final class TestSynchronizedPooledObjectFactory<T> implements PooledObjectFactor
 	 * {@inheritDoc}
 	 */
 	@Override
-	public boolean validateObject(final PooledObject<T> p) {
+	public PooledObject<T> makeObject() throws Exception {
 		writeLock.lock();
 		try {
-			return factory.validateObject(p);
-		} finally {
-			writeLock.unlock();
-		}
-	}
-
-	/**
-	 * {@inheritDoc}
-	 */
-	@Override
-	public void activateObject(final PooledObject<T> p) throws Exception {
-		writeLock.lock();
-		try {
-			factory.activateObject(p);
+			return factory.makeObject();
 		} finally {
 			writeLock.unlock();
 		}
@@ -132,5 +119,18 @@ final class TestSynchronizedPooledObjectFactory<T> implements PooledObjectFactor
 		sb.append("{factory=").append(factory);
 		sb.append('}');
 		return sb.toString();
+	}
+
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public boolean validateObject(final PooledObject<T> p) {
+		writeLock.lock();
+		try {
+			return factory.validateObject(p);
+		} finally {
+			writeLock.unlock();
+		}
 	}
 }

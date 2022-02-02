@@ -17,10 +17,9 @@
 
 package org.apache.commons.pool2;
 
-import java.util.List;
 import java.util.ArrayList;
+import java.util.List;
 
-import org.apache.commons.pool2.PooledObjectFactory;
 import org.apache.commons.pool2.impl.DefaultPooledObject;
 
 /**
@@ -30,13 +29,83 @@ import org.apache.commons.pool2.impl.DefaultPooledObject;
  */
 public class MethodCallPoolableObjectFactory implements PooledObjectFactory<Object> {
     private final List<MethodCall> methodCalls = new ArrayList<>();
-    private int count = 0;
+    private int count;
     private boolean valid = true;
     private boolean makeObjectFail;
     private boolean activateObjectFail;
     private boolean validateObjectFail;
     private boolean passivateObjectFail;
     private boolean destroyObjectFail;
+
+    @Override
+    public void activateObject(final PooledObject<Object> obj) throws Exception {
+        methodCalls.add(new MethodCall("activateObject", obj.getObject()));
+        if (activateObjectFail) {
+            throw new PrivateException("activateObject");
+        }
+    }
+
+    @Override
+    public void destroyObject(final PooledObject<Object> obj) throws Exception {
+        methodCalls.add(new MethodCall("destroyObject", obj.getObject()));
+        if (destroyObjectFail) {
+            throw new PrivateException("destroyObject");
+        }
+    }
+
+    public int getCurrentCount() {
+        return count;
+    }
+
+    public List<MethodCall> getMethodCalls() {
+        return methodCalls;
+    }
+
+    public boolean isActivateObjectFail() {
+        return activateObjectFail;
+    }
+
+    public boolean isDestroyObjectFail() {
+        return destroyObjectFail;
+    }
+
+    public boolean isMakeObjectFail() {
+        return makeObjectFail;
+    }
+
+    public boolean isPassivateObjectFail() {
+        return passivateObjectFail;
+    }
+
+    public boolean isValid() {
+        return valid;
+    }
+
+    public boolean isValidateObjectFail() {
+        return validateObjectFail;
+    }
+
+    @Override
+    public PooledObject<Object> makeObject() throws Exception {
+        final MethodCall call = new MethodCall("makeObject");
+        methodCalls.add(call);
+        final int originalCount = this.count++;
+        if (makeObjectFail) {
+            throw new PrivateException("makeObject");
+        }
+        // Generate new object, don't use cache via Integer.valueOf(...)
+        final Integer obj = Integer.valueOf(originalCount);
+        call.setReturned(obj);
+        return new DefaultPooledObject<>(obj);
+    }
+
+    @Override
+    public void passivateObject(final PooledObject<Object> obj) throws Exception {
+        methodCalls.add(new MethodCall("passivateObject", obj.getObject()));
+        if (passivateObjectFail) {
+            throw new PrivateException("passivateObject");
+        }
+    }
 
     public void reset() {
         count = 0;
@@ -49,86 +118,32 @@ public class MethodCallPoolableObjectFactory implements PooledObjectFactory<Obje
         setDestroyObjectFail(false);
     }
 
-    public List<MethodCall> getMethodCalls() {
-        return methodCalls;
-    }
-
-    public int getCurrentCount() {
-        return count;
+    public void setActivateObjectFail(final boolean activateObjectFail) {
+        this.activateObjectFail = activateObjectFail;
     }
 
     public void setCurrentCount(final int count) {
         this.count = count;
     }
 
-    public boolean isMakeObjectFail() {
-        return makeObjectFail;
+    public void setDestroyObjectFail(final boolean destroyObjectFail) {
+        this.destroyObjectFail = destroyObjectFail;
     }
 
     public void setMakeObjectFail(final boolean makeObjectFail) {
         this.makeObjectFail = makeObjectFail;
     }
 
-    public boolean isDestroyObjectFail() {
-        return destroyObjectFail;
-    }
-
-    public void setDestroyObjectFail(final boolean destroyObjectFail) {
-        this.destroyObjectFail = destroyObjectFail;
-    }
-
-    public boolean isValid() {
-        return valid;
+    public void setPassivateObjectFail(final boolean passivateObjectFail) {
+        this.passivateObjectFail = passivateObjectFail;
     }
 
     public void setValid(final boolean valid) {
         this.valid = valid;
     }
 
-    public boolean isValidateObjectFail() {
-        return validateObjectFail;
-    }
-
     public void setValidateObjectFail(final boolean validateObjectFail) {
         this.validateObjectFail = validateObjectFail;
-    }
-
-    public boolean isActivateObjectFail() {
-        return activateObjectFail;
-    }
-
-    public void setActivateObjectFail(final boolean activateObjectFail) {
-        this.activateObjectFail = activateObjectFail;
-    }
-
-    public boolean isPassivateObjectFail() {
-        return passivateObjectFail;
-    }
-
-    public void setPassivateObjectFail(final boolean passivateObjectFail) {
-        this.passivateObjectFail = passivateObjectFail;
-    }
-
-    @Override
-    public PooledObject<Object> makeObject() throws Exception {
-        final MethodCall call = new MethodCall("makeObject");
-        methodCalls.add(call);
-        final int originalCount = this.count++;
-        if (makeObjectFail) {
-            throw new PrivateException("makeObject");
-        }
-        // Generate new object, don't use cache via Integer.valueOf(...)
-        final Integer obj = new Integer(originalCount);
-        call.setReturned(obj);
-        return new DefaultPooledObject<Object>(obj);
-    }
-
-    @Override
-    public void activateObject(final PooledObject<Object> obj) throws Exception {
-        methodCalls.add(new MethodCall("activateObject", obj.getObject()));
-        if (activateObjectFail) {
-            throw new PrivateException("activateObject");
-        }
     }
 
     @Override
@@ -141,21 +156,5 @@ public class MethodCallPoolableObjectFactory implements PooledObjectFactory<Obje
         final boolean r = valid;
         call.returned(Boolean.valueOf(r));
         return r;
-    }
-
-    @Override
-    public void passivateObject(final PooledObject<Object> obj) throws Exception {
-        methodCalls.add(new MethodCall("passivateObject", obj.getObject()));
-        if (passivateObjectFail) {
-            throw new PrivateException("passivateObject");
-        }
-    }
-
-    @Override
-    public void destroyObject(final PooledObject<Object> obj) throws Exception {
-        methodCalls.add(new MethodCall("destroyObject", obj.getObject()));
-        if (destroyObjectFail) {
-            throw new PrivateException("destroyObject");
-        }
     }
 }

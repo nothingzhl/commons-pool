@@ -26,105 +26,25 @@ import java.io.ByteArrayOutputStream;
 import java.io.PrintWriter;
 import java.lang.management.ManagementFactory;
 import java.time.Duration;
-import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Objects;
 import java.util.Set;
-import java.util.concurrent.atomic.AtomicInteger;
 
 import javax.management.MBeanServer;
 import javax.management.ObjectName;
 
 import org.apache.commons.pool2.DestroyMode;
+import org.apache.commons.pool2.KeyedPooledObjectFactory;
 import org.apache.commons.pool2.PooledObject;
-import org.apache.commons.pool2.PooledObjectFactory;
-import org.apache.commons.pool2.TrackedUse;
 import org.apache.commons.pool2.Waiter;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-class PooledTestObject implements TrackedUse {
-    private static final AtomicInteger ATOMIC_HASH = new AtomicInteger();
-    private static final Instant INSTANT_0 = Instant.ofEpochMilli(0);
-    private static final Instant INSTANT_1 = Instant.ofEpochMilli(1);
-    private boolean active;
-    private boolean destroyed;
-    private final int hash;
-    private boolean abandoned;
-    private boolean detached;  // destroy-abandoned "detaches"
-
-    public PooledTestObject() {
-        this.hash = ATOMIC_HASH.incrementAndGet();
-    }
-
-    public void destroy(final DestroyMode mode) {
-        destroyed = true;
-        if (mode.equals(DestroyMode.ABANDONED)) {
-            detached = true;
-        }
-    }
-
-    @Override
-    public boolean equals(final Object obj) {
-        if (!(obj instanceof PooledTestObject)) {
-            return false;
-        }
-        return obj.hashCode() == hashCode();
-    }
-
-    @Override
-    public long getLastUsed() {
-        if (abandoned) {
-            // Abandoned object sweep will occur no matter what the value of removeAbandonedTimeout,
-            // because this indicates that this object was last used decades ago
-            return 1;
-        }
-        // Abandoned object sweep won't clean up this object
-        return 0;
-    }
-
-    @Override
-    public Instant getLastUsedInstant() {
-        if (abandoned) {
-            // Abandoned object sweep will occur no matter what the value of removeAbandonedTimeout,
-            // because this indicates that this object was last used decades ago
-            return INSTANT_1;
-        }
-        // Abandoned object sweep won't clean up this object
-        return INSTANT_0;
-    }
-
-    @Override
-    public int hashCode() {
-        return hash;
-    }
-
-    public synchronized boolean isActive() {
-        return active;
-    }
-
-    public boolean isDestroyed() {
-        return destroyed;
-    }
-
-    public boolean isDetached() {
-        return detached;
-    }
-
-    public void setAbandoned(final boolean b) {
-        abandoned = b;
-    }
-
-    public synchronized void setActive(final boolean b) {
-        active = b;
-    }
-}
-
 /**
  * TestCase for AbandonedObjectPool
  */
-public class TestAbandonedObjectPool {
+public class TestAbandonedKeyedObjectPool {
 
     class ConcurrentBorrower extends Thread {
         private final ArrayList<PooledTestObject> borrowed;
@@ -136,7 +56,7 @@ public class TestAbandonedObjectPool {
         @Override
         public void run() {
             try {
-                borrowed.add(pool.borrowObject());
+                borrowed.add(pool.borrowObject(0));
             } catch (final Exception e) {
                 // expected in most cases
             }
@@ -151,14 +71,14 @@ public class TestAbandonedObjectPool {
         public void run() {
             try {
                 sleep(20);
-                pool.returnObject(returned);
+                pool.returnObject(0, returned);
             } catch (final Exception e) {
                 // ignore
             }
         }
     }
 
-    private static class SimpleFactory implements PooledObjectFactory<PooledTestObject> {
+    private static class SimpleFactory implements KeyedPooledObjectFactory<Integer,PooledTestObject> {
 
         private final long destroyLatency;
         private final long validateLatency;
@@ -174,17 +94,17 @@ public class TestAbandonedObjectPool {
         }
 
         @Override
-        public void activateObject(final PooledObject<PooledTestObject> obj) {
+        public void activateObject(final Integer key, final PooledObject<PooledTestObject> obj) {
             obj.getObject().setActive(true);
         }
 
         @Override
-        public void destroyObject(final PooledObject<PooledTestObject> obj) throws Exception {
-            destroyObject(obj, DestroyMode.NORMAL);
+        public void destroyObject(final Integer key, final PooledObject<PooledTestObject> obj) throws Exception {
+            destroyObject(key, obj, DestroyMode.NORMAL);
         }
 
         @Override
-        public void destroyObject(final PooledObject<PooledTestObject> obj, final DestroyMode destroyMode) throws Exception {
+        public void destroyObject(final Integer key, final PooledObject<PooledTestObject> obj, final DestroyMode destroyMode) throws Exception {
             obj.getObject().setActive(false);
             // while destroying instances, yield control to other threads
             // helps simulate threading errors
@@ -196,23 +116,23 @@ public class TestAbandonedObjectPool {
         }
 
         @Override
-        public PooledObject<PooledTestObject> makeObject() {
+        public PooledObject<PooledTestObject> makeObject(final Integer key) {
             return new DefaultPooledObject<>(new PooledTestObject());
         }
 
         @Override
-        public void passivateObject(final PooledObject<PooledTestObject> obj) {
+        public void passivateObject(final Integer key, final PooledObject<PooledTestObject> obj) {
             obj.getObject().setActive(false);
         }
 
         @Override
-        public boolean validateObject(final PooledObject<PooledTestObject> obj) {
+        public boolean validateObject(final Integer key, final PooledObject<PooledTestObject> obj) {
             Waiter.sleepQuietly(validateLatency);
             return true;
         }
     }
 
-    private GenericObjectPool<PooledTestObject> pool;
+    private GenericKeyedObjectPool<Integer,PooledTestObject> pool;
 
     private AbandonedConfig abandonedConfig;
 
@@ -224,19 +144,18 @@ public class TestAbandonedObjectPool {
         // Uncomment the following line to enable logging:
         // abandonedConfig.setLogAbandoned(true);
 
-        abandonedConfig.setRemoveAbandonedOnBorrow(true);
         // One second Duration.
         abandonedConfig.setRemoveAbandonedTimeout(TestConstants.ONE_SECOND_DURATION);
         assertEquals(TestConstants.ONE_SECOND_DURATION, abandonedConfig.getRemoveAbandonedTimeoutDuration());
-        assertEquals(1, abandonedConfig.getRemoveAbandonedTimeout()); // in seconds.
+        assertEquals(1, abandonedConfig.getRemoveAbandonedTimeout());
         // One second int (not millis).
         abandonedConfig.setRemoveAbandonedTimeout(1);
         assertEquals(TestConstants.ONE_SECOND_DURATION, abandonedConfig.getRemoveAbandonedTimeoutDuration());
-        assertEquals(1, abandonedConfig.getRemoveAbandonedTimeout()); // in seconds.
+        assertEquals(1, abandonedConfig.getRemoveAbandonedTimeout());
 
-        pool = new GenericObjectPool<>(
+        pool = new GenericKeyedObjectPool<>(
                new SimpleFactory(),
-               new GenericObjectPoolConfig<>(),
+               new GenericKeyedObjectPoolConfig<>(),
                abandonedConfig);
     }
 
@@ -250,7 +169,7 @@ public class TestAbandonedObjectPool {
 
         final MBeanServer mbs = ManagementFactory.getPlatformMBeanServer();
         final Set<ObjectName> result = mbs.queryNames(new ObjectName(
-                "org.apache.commoms.pool2:type=GenericObjectPool,*"), null);
+                "org.apache.commoms.pool2:type=GenericKeyedObjectPool,*"), null);
         // There should be no registered pools at this point
         final int registeredPoolCount = result.size();
         final StringBuilder msg = new StringBuilder("Current pool is: ");
@@ -279,20 +198,20 @@ public class TestAbandonedObjectPool {
         abandonedConfig.setRemoveAbandonedOnMaintenance(true);
         abandonedConfig.setRemoveAbandonedTimeout(TestConstants.ONE_SECOND_DURATION);
         pool.close();  // Unregister pool created by setup
-        pool = new GenericObjectPool<>(
+        pool = new GenericKeyedObjectPool<>(
                 // destroys take 200 ms
                 new SimpleFactory(200, 0),
-                new GenericObjectPoolConfig<>(), abandonedConfig);
+                new GenericKeyedObjectPoolConfig<>(), abandonedConfig);
         final int n = 10;
         pool.setMaxTotal(n);
         pool.setBlockWhenExhausted(false);
         pool.setTimeBetweenEvictionRuns(Duration.ofMillis(500));
         PooledTestObject obj = null;
         for (int i = 0; i < 5; i++) {
-            obj = pool.borrowObject();
+            obj = pool.borrowObject(0);
         }
         Thread.sleep(1000);          // abandon checked out instances and let evictor start
-        pool.invalidateObject(obj);  // Should not trigger another destroy / decrement
+        pool.invalidateObject(0, obj);  // Should not trigger another destroy / decrement
         Thread.sleep(2000);          // give evictor time to finish destroys
         assertEquals(0, pool.getNumActive());
         assertEquals(5, pool.getDestroyedCount());
@@ -311,15 +230,15 @@ public class TestAbandonedObjectPool {
         abandonedConfig.setRemoveAbandonedOnBorrow(true);
         abandonedConfig.setRemoveAbandonedTimeout(TestConstants.ONE_SECOND_DURATION);
         pool.close();  // Unregister pool created by setup
-        pool = new GenericObjectPool<>(
+        pool = new GenericKeyedObjectPool<>(
                 new SimpleFactory(200, 0),
-                new GenericObjectPoolConfig<>(), abandonedConfig);
+                new GenericKeyedObjectPoolConfig<>(), abandonedConfig);
         final int n = 10;
         pool.setMaxTotal(n);
         pool.setBlockWhenExhausted(false);
         PooledTestObject obj = null;
         for (int i = 0; i < n - 2; i++) {
-            obj = pool.borrowObject();
+            obj = pool.borrowObject(0);
         }
         Objects.requireNonNull(obj, "Unable to borrow object from pool");
         final int deadMansHash = obj.hashCode();
@@ -329,28 +248,28 @@ public class TestAbandonedObjectPool {
         // off removeAbandoned and then returns an instance that borrowObject
         // will deem abandoned.  Make sure it is not returned to the borrower.
         returner.start();    // short delay, then return instance
-        assertTrue(pool.borrowObject().hashCode() != deadMansHash);
+        assertTrue(pool.borrowObject(0).hashCode() != deadMansHash);
         assertEquals(0, pool.getNumIdle());
         assertEquals(1, pool.getNumActive());
     }
 
     /**
      * Tests fix for Bug 28579, a bug in AbandonedObjectPool that causes numActive to go negative
-     * in GenericObjectPool
+     * in GenericKeyedObjectPool
      *
      * @throws Exception May occur in some failure modes
      */
     @Test
     public void testConcurrentInvalidation() throws Exception {
         final int POOL_SIZE = 30;
-        pool.setMaxTotal(POOL_SIZE);
-        pool.setMaxIdle(POOL_SIZE);
+        pool.setMaxTotalPerKey(POOL_SIZE);
+        pool.setMaxIdlePerKey(POOL_SIZE);
         pool.setBlockWhenExhausted(false);
 
         // Exhaust the connection pool
         final ArrayList<PooledTestObject> vec = new ArrayList<>();
         for (int i = 0; i < POOL_SIZE; i++) {
-            vec.add(pool.borrowObject());
+            vec.add(pool.borrowObject(0));
         }
 
         // Abandon all borrowed objects
@@ -374,7 +293,7 @@ public class TestAbandonedObjectPool {
         // Return all objects that have not been destroyed
         for (final PooledTestObject pto : vec) {
             if (pto.isActive()) {
-                pool.returnObject(pto);
+                pool.returnObject(0, pto);
             }
         }
 
@@ -387,13 +306,13 @@ public class TestAbandonedObjectPool {
         abandonedConfig.setRemoveAbandonedOnMaintenance(true);
         abandonedConfig.setRemoveAbandonedTimeout(TestConstants.ONE_SECOND_DURATION);
         pool.close();  // Unregister pool created by setup
-        pool = new GenericObjectPool<>(
+        pool = new GenericKeyedObjectPool<>(
              // validate takes 1 second
              new SimpleFactory(0, 0),
-             new GenericObjectPoolConfig<>(), abandonedConfig);
+             new GenericKeyedObjectPoolConfig<>(), abandonedConfig);
         pool.setTimeBetweenEvictionRuns(Duration.ofMillis(50));
         // Borrow an object, wait long enough for it to be abandoned
-        final PooledTestObject obj = pool.borrowObject();
+        final PooledTestObject obj = pool.borrowObject(0);
         Thread.sleep(100);
         assertTrue(obj.isDetached());
     }
@@ -401,10 +320,10 @@ public class TestAbandonedObjectPool {
     public void testDestroyModeNormal() throws Exception {
         abandonedConfig = new AbandonedConfig();
         pool.close();  // Unregister pool created by setup
-        pool = new GenericObjectPool<>(new SimpleFactory(0, 0));
-        pool.setMaxIdle(0);
-        final PooledTestObject obj = pool.borrowObject();
-        pool.returnObject(obj);
+        pool = new GenericKeyedObjectPool<>(new SimpleFactory(0, 0));
+        pool.setMaxIdlePerKey(0);
+        final PooledTestObject obj = pool.borrowObject(0);
+        pool.returnObject(0, obj);
         assertTrue(obj.isDestroyed());
         assertFalse(obj.isDetached());
     }
@@ -421,10 +340,10 @@ public class TestAbandonedObjectPool {
         abandonedConfig.setRemoveAbandonedOnMaintenance(true);
         abandonedConfig.setRemoveAbandonedTimeout(TestConstants.ONE_SECOND_DURATION);
         pool.close();  // Unregister pool created by setup
-        pool = new GenericObjectPool<>(
+        pool = new GenericKeyedObjectPool<>(
              // validate takes 1 second
              new SimpleFactory(0, 1000),
-             new GenericObjectPoolConfig<>(), abandonedConfig);
+             new GenericKeyedObjectPoolConfig<>(), abandonedConfig);
         final int n = 10;
         pool.setMaxTotal(n);
         pool.setBlockWhenExhausted(false);
@@ -433,10 +352,10 @@ public class TestAbandonedObjectPool {
         // Borrow an object, wait long enough for it to be abandoned
         // then arrange for evictor to run while it is being returned
         // validation takes a second, evictor runs every 500 ms
-        final PooledTestObject obj = pool.borrowObject();
+        final PooledTestObject obj = pool.borrowObject(0);
         Thread.sleep(50);       // abandon obj
-        pool.returnObject(obj); // evictor will run during validation
-        final PooledTestObject obj2 = pool.borrowObject();
+        pool.returnObject(0,obj); // evictor will run during validation
+        final PooledTestObject obj2 = pool.borrowObject(0);
         assertEquals(obj, obj2);          // should get original back
         assertFalse(obj2.isDestroyed());  // and not destroyed
     }
@@ -455,7 +374,7 @@ public class TestAbandonedObjectPool {
         abandonedConfig.setLogWriter(pw);
         pool.setAbandonedConfig(abandonedConfig);
         pool.setTimeBetweenEvictionRuns(Duration.ofMillis(100));
-        final PooledTestObject o1 = pool.borrowObject();
+        final PooledTestObject o1 = pool.borrowObject(0);
         Thread.sleep(2000);
         assertTrue(o1.isDestroyed());
         bos.flush();
@@ -480,13 +399,13 @@ public class TestAbandonedObjectPool {
         pool.setMaxTotal(1);
 
         @SuppressWarnings("unused") // This is going to be abandoned
-        final PooledTestObject o1 = pool.borrowObject();
+        final PooledTestObject o1 = pool.borrowObject(0);
 
         final long startMillis = System.currentTimeMillis();
-        final PooledTestObject o2 = pool.borrowObject(5000);
+        final PooledTestObject o2 = pool.borrowObject(0, 5000);
         final long endMillis = System.currentTimeMillis();
 
-        pool.returnObject(o2);
+        pool.returnObject(0, o2);
 
         assertTrue(endMillis - startMillis < 5000);
     }

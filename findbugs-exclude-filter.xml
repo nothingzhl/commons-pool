@@ -46,12 +46,6 @@
     <Bug code="REC" />
   </Match>
   <Match>
-    <!-- Use of default system encoding is deliberate design choice -->
-    <Class name="org.apache.commons.pool2.impl.AbandonedConfig" />
-    <Method name="&lt;init&gt;" />
-    <Bug pattern="DM_DEFAULT_ENCODING " />
-  </Match>
-  <Match>
     <!-- compareTo() method carries the appropriate warning -->
     <Class name="org.apache.commons.pool2.impl.DefaultPooledObject" />
     <Bug pattern="EQ_COMPARETO_USE_OBJECT_EQUALS " />
@@ -78,14 +72,13 @@
     <Bug code="DE" />
   </Match>
   <Match>
-    <!-- Swallowing exception is deliberate design choice -->
+    <!-- TODO, Is this a real issue? -->
     <Class name="org.apache.commons.pool2.impl.SoftReferenceObjectPool" />
     <Or>
-      <Method name="addObject" />
-      <Method name="clear" />
-      <Method name="returnObject" />
+      <Field name="createCount" />
+      <Field name="numActive" />
     </Or>
-    <Bug code="DE" />
+    <Bug pattern="IS2_INCONSISTENT_SYNC" />
   </Match>
   
   <!-- TEST CODE -->
@@ -129,7 +122,7 @@
     <!-- they are the same object                                            -->
     <Class name="org.apache.commons.pool2.impl.TestGenericKeyedObjectPool" />
     <Method name="testMaxTotalLRU" />
-    <bug pattern="ES_COMPARING_STRINGS_WITH_EQ" />
+    <Bug pattern="ES_COMPARING_STRINGS_WITH_EQ" />
   </Match>
   <Match>
     <!-- Exception is ignored as earlier exception is more important -->
@@ -202,5 +195,11 @@
     <Class name="org.apache.commons.pool2.impl.GenericKeyedObjectPool" />
     <Method name="reuseCapacity" />
     <Bug pattern="WMI_WRONG_MAP_ITERATOR" />
+  </Match>
+  <Match>
+    <Bug pattern="EI_EXPOSE_REP" />
+  </Match>
+  <Match>
+    <Bug pattern="EI_EXPOSE_REP2" />
   </Match>
 </FindBugsFilter>

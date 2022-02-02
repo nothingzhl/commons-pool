@@ -22,43 +22,57 @@ package org.apache.commons.pool2;
  *
  */
 public class VisitTracker<K> {
-    private int validateCount = 0;
-    private int activateCount = 0;
-    private int passivateCount = 0;
-    private boolean destroyed = false;
-    private int id = 0;
-    private K key = null;
+    private int validateCount;
+    private int activateCount;
+    private int passivateCount;
+    private boolean destroyed;
+    private int id;
+    private K key;
 
     public VisitTracker() {
-        super();
         reset();
     }
 
     public VisitTracker(final int id) {
-        super();
         this.id = id;
         reset();
     }
 
     public VisitTracker(final int id, final K key) {
-        super();
         this.id = id;
         this.key = key;
         reset();
     }
 
-    public boolean validate() {
-        if (destroyed) {
-            fail("attempted to validate a destroyed object");
-        }
-        validateCount++;
-        return true;
-    }
     public void activate() {
         if (destroyed) {
             fail("attempted to activate a destroyed object");
         }
         activateCount++;
+    }
+    public void destroy() {
+        destroyed = true;
+    }
+    private void fail(final String message) {
+        throw new IllegalStateException(message);
+    }
+    public int getActivateCount() {
+        return activateCount;
+    }
+    public int getId() {
+        return id;
+    }
+    public K getKey() {
+        return key;
+    }
+    public int getPassivateCount() {
+        return passivateCount;
+    }
+    public int getValidateCount() {
+        return validateCount;
+    }
+    public boolean isDestroyed() {
+        return destroyed;
     }
     public void passivate() {
         if (destroyed) {
@@ -72,33 +86,16 @@ public class VisitTracker<K> {
         passivateCount = 0;
         destroyed = false;
     }
-    public void destroy() {
-        destroyed = true;
-    }
-    public int getValidateCount() {
-        return validateCount;
-    }
-    public int getActivateCount() {
-        return activateCount;
-    }
-    public int getPassivateCount() {
-        return passivateCount;
-    }
-    public boolean isDestroyed() {
-        return destroyed;
-    }
-    public int getId() {
-        return id;
-    }
-    public K getKey() {
-        return key;
-    }
     @Override
     public String toString() {
         return "Key: " + key + " id: " + id;
     }
 
-    private void fail(final String message) {
-        throw new IllegalStateException(message);
+    public boolean validate() {
+        if (destroyed) {
+            fail("attempted to validate a destroyed object");
+        }
+        validateCount++;
+        return true;
     }
 }

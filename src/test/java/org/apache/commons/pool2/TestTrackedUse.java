@@ -14,23 +14,28 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.commons.pool2;
 
-/**
- * This interface may be implemented by an object pool to enable clients (primarily those clients that wrap pools to
- * provide pools with extended features) to provide additional information to the pool relating to object using allowing
- * more informed decisions and reporting to be made regarding abandoned objects.
- *
- * @param <T> The type of object provided by the pool.
- *
- * @since 2.0
- */
-public interface UsageTracking<T> {
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
-    /**
-     * Called every time a pooled object is used to enable the pool to better track borrowed objects.
-     *
-     * @param pooledObject The object that is being used.
-     */
-    void use(T pooledObject);
+import java.time.Instant;
+
+import org.junit.jupiter.api.Test;
+
+public class TestTrackedUse {
+
+    class DefaultTrackedUse implements TrackedUse {
+
+        @Override
+        public long getLastUsed() {
+            return 1;
+        }
+
+    }
+
+    @Test
+    public void testDefaultGetLastUsedInstant() {
+        assertEquals(Instant.ofEpochMilli(1), new DefaultTrackedUse().getLastUsedInstant());
+    }
 }

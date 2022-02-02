@@ -16,18 +16,38 @@
  */
 package org.apache.commons.pool2;
 
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import java.util.concurrent.atomic.AtomicInteger;
 
 import org.apache.commons.pool2.impl.DefaultPooledObject;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 /**
  */
 public class TestBasePoolableObjectFactory {
 
+    private static class TestFactory extends BasePooledObjectFactory<AtomicInteger> {
+        @Override
+        public AtomicInteger create() throws Exception {
+            return new AtomicInteger(0);
+        }
+        @Override
+        public void destroyObject(final PooledObject<AtomicInteger> p, final DestroyMode destroyMode){
+            if (destroyMode.equals(DestroyMode.ABANDONED)) {
+                p.getObject().incrementAndGet();
+            }
+        }
+        @Override
+        public PooledObject<AtomicInteger> wrap(final AtomicInteger value) {
+            return new DefaultPooledObject<>(value);
+        }
+    }
+
     @Test
     public void testDefaultMethods() throws Exception {
-        final PooledObjectFactory<Object> factory = new TestFactory();
+        final PooledObjectFactory<AtomicInteger> factory = new TestFactory();
 
         factory.activateObject(null); // a no-op
         factory.passivateObject(null); // a no-op
@@ -35,14 +55,21 @@ public class TestBasePoolableObjectFactory {
         assertTrue(factory.validateObject(null)); // constant true
     }
 
-    private static class TestFactory extends BasePooledObjectFactory<Object> {
-        @Override
-        public Object create() throws Exception {
-            return null;
-        }
-        @Override
-        public PooledObject<Object> wrap(final Object value) {
-            return new DefaultPooledObject<>(value);
-        }
+    /**
+     * Default destroy does nothing to underlying AtomicInt, ABANDONED mode
+     * increments the value.  Verify that destroy with no mode does default,
+     * destroy with ABANDONED mode increments.
+     *
+     * @throws Exception May occur in some failure modes
+     */
+    @Test
+    public void testDestroyModes() throws Exception {
+        final PooledObjectFactory<AtomicInteger> factory = new TestFactory();
+        final PooledObject<AtomicInteger> pooledObj = factory.makeObject();
+        final AtomicInteger obj = pooledObj.getObject();
+        factory.destroyObject(pooledObj);
+        assertEquals(0, obj.get());
+        factory.destroyObject(pooledObj, DestroyMode.ABANDONED);
+        assertEquals(1, obj.get());
     }
 }

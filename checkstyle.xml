@@ -16,8 +16,8 @@
    limitations under the License.
 -->
 <!DOCTYPE module PUBLIC
-    "-//Puppy Crawl//DTD Check Configuration 1.1//EN"
-    "http://www.puppycrawl.com/dtds/configuration_1_1.dtd">
+    "-//Checkstyle//DTD Checkstyle Configuration 1.2//EN"
+    "https://checkstyle.org/dtds/configuration_1_2.dtd">
 
 <!--
   Checkstyle checks configured for Maven.
@@ -45,8 +45,6 @@
         
      <!-- Require method javadocs, allow undeclared RTE -->
     <module name="JavadocMethod">
-      <property name="allowUndeclaredRTE" value="true"/>
-      <property name="allowMissingThrowsTags" value="true"/>
     </module>
         
     <!-- Require field javadoc -->
@@ -68,9 +66,6 @@
       <property name="classes" value="java.lang.Boolean, java.lang.String"/>
     </module>
 
-    <!-- Required for SuppressionCommentFilter below -->
-    <module name="FileContentsHolder"/>
-
   </module>
   
   <!-- Require package Javadoc -->
@@ -79,15 +74,8 @@
     <property name="allowLegacy" value="true"/>
   </module>
 
-  <!-- Setup special comments to suppress specific checks from source files -->
-  <module name="SuppressionCommentFilter">
-    <property name="offCommentFormat" value="CHECKSTYLE\: stop all checks"/>
-    <property name="onCommentFormat"  value="CHECKSTYLE\: resume checking"/>
-  </module>
-  <module name="SuppressionCommentFilter">
-    <property name="offCommentFormat" value="CHECKSTYLE\: stop VisibilityModifier"/>
-    <property name="onCommentFormat"  value="CHECKSTYLE\: resume VisibilityModifier"/>
-    <property name="checkFormat"      value="VisibilityModifier"/>
+  <module name="LineLength">
+    <property name="max" value="160"/>
   </module>
 
 </module>

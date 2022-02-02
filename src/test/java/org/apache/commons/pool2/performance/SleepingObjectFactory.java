@@ -19,6 +19,7 @@ package org.apache.commons.pool2.performance;
 
 import org.apache.commons.pool2.PooledObject;
 import org.apache.commons.pool2.PooledObjectFactory;
+import org.apache.commons.pool2.Waiter;
 import org.apache.commons.pool2.impl.DefaultPooledObject;
 
 /**
@@ -26,42 +27,13 @@ import org.apache.commons.pool2.impl.DefaultPooledObject;
  */
 public class SleepingObjectFactory implements PooledObjectFactory<Integer> {
 
-    private int counter = 0;
-    private boolean debug = false;
-
-    @Override
-    public PooledObject<Integer> makeObject() throws Exception {
-        // Deliberate choice to create a new object in case future unit tests
-        // check for a specific object.
-        final Integer obj = new Integer(counter++);
-        debug("makeObject", obj);
-        sleep(500);
-        return new DefaultPooledObject<>(obj);
-    }
-
-    @Override
-    public void destroyObject(final PooledObject<Integer> obj) throws Exception {
-        debug("destroyObject", obj);
-        sleep(250);
-    }
-
-    @Override
-    public boolean validateObject(final PooledObject<Integer> obj) {
-        debug("validateObject", obj);
-        sleep(30);
-        return true;
-    }
+    private int counter;
+    private boolean debug;
 
     @Override
     public void activateObject(final PooledObject<Integer> obj) throws Exception {
         debug("activateObject", obj);
-        sleep(10);
-    }
-
-    @Override
-    public void passivateObject(final PooledObject<Integer> obj) throws Exception {
-        debug("passivateObject", obj);
-        sleep(10);
+        Waiter.sleepQuietly(10);
     }
 
     private void debug(final String method, final Object obj) {
@@ -71,20 +43,40 @@ public class SleepingObjectFactory implements PooledObjectFactory<Integer> {
         }
     }
 
-    private void sleep(final long millis) {
-        try {
-            Thread.sleep(millis);
-        }
-        catch (final InterruptedException e) {
-            // ignore
-        }
+    @Override
+    public void destroyObject(final PooledObject<Integer> obj) throws Exception {
+        debug("destroyObject", obj);
+        Waiter.sleepQuietly(250);
     }
 
     public boolean isDebug() {
         return debug;
     }
 
+    @Override
+    public PooledObject<Integer> makeObject() throws Exception {
+        // Deliberate choice to create a new object in case future unit tests
+        // check for a specific object.
+        final Integer obj = Integer.valueOf(counter++);
+        debug("makeObject", obj);
+        Waiter.sleepQuietly(500);
+        return new DefaultPooledObject<>(obj);
+    }
+
+    @Override
+    public void passivateObject(final PooledObject<Integer> obj) throws Exception {
+        debug("passivateObject", obj);
+        Waiter.sleepQuietly(10);
+    }
+
     public void setDebug(final boolean b) {
         debug = b;
+    }
+
+    @Override
+    public boolean validateObject(final PooledObject<Integer> obj) {
+        debug("validateObject", obj);
+        Waiter.sleepQuietly(30);
+        return true;
     }
 }

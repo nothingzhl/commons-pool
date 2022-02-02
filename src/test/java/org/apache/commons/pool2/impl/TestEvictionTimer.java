@@ -16,18 +16,19 @@
  */
 package org.apache.commons.pool2.impl;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNull;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import java.lang.reflect.Field;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.ThreadPoolExecutor;
-import java.util.concurrent.TimeUnit;
 
 import org.apache.commons.pool2.BasePooledObjectFactory;
 import org.apache.commons.pool2.PooledObject;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 /**
  * Tests for {@link EvictionTimer}.
@@ -52,7 +53,7 @@ public class TestEvictionTimer {
 
             // Start evictor #1
             final BaseGenericObjectPool<String>.Evictor evictor1 = pool.new Evictor();
-            EvictionTimer.schedule(evictor1, 60000, 60000);
+            EvictionTimer.schedule(evictor1, TestConstants.ONE_MINUTE_DURATION, TestConstants.ONE_MINUTE_DURATION);
 
             // Assert that eviction objects are correctly allocated
             // 1 - the evictor timer task is created
@@ -65,22 +66,23 @@ public class TestEvictionTimer {
             final Field evictorExecutorField = EvictionTimer.class.getDeclaredField("executor");
             evictorExecutorField.setAccessible(true);
             final ThreadPoolExecutor evictionExecutor = (ThreadPoolExecutor) evictorExecutorField.get(null);
-            assertEquals(1, evictionExecutor.getQueue().size());
+            assertEquals(2, evictionExecutor.getQueue().size()); // Reaper plus one eviction task
+            assertEquals(1, EvictionTimer.getNumTasks());
 
             // Start evictor #2
             final BaseGenericObjectPool<String>.Evictor evictor2 = pool.new Evictor();
-            EvictionTimer.schedule(evictor2, 60000, 60000);
+            EvictionTimer.schedule(evictor2, TestConstants.ONE_MINUTE_DURATION, TestConstants.ONE_MINUTE_DURATION);
 
             // Assert that eviction objects are correctly allocated
             // 1 - the evictor timer task is created
             sf = (ScheduledFuture<?>) evictorTaskFutureField.get(evictor2);
             assertFalse(sf.isCancelled());
             // 2- and, the eviction action is added to executor thread pool
-            assertEquals(2, evictionExecutor.getQueue().size());
+            assertEquals(3, evictionExecutor.getQueue().size()); // Reaper plus 2 eviction tasks
+            assertEquals(2, EvictionTimer.getNumTasks());
 
             // Stop evictor #1
-            EvictionTimer.cancel(evictor1, BaseObjectPoolConfig.DEFAULT_EVICTOR_SHUTDOWN_TIMEOUT_MILLIS,
-                    TimeUnit.MILLISECONDS);
+            EvictionTimer.cancel(evictor1, BaseObjectPoolConfig.DEFAULT_EVICTOR_SHUTDOWN_TIMEOUT, false);
 
             // Assert that eviction objects are correctly cleaned
             // 1 - the evictor timer task is cancelled
@@ -88,11 +90,11 @@ public class TestEvictionTimer {
             assertTrue(sf.isCancelled());
             // 2- and, the eviction action is removed from executor thread pool
             final ThreadPoolExecutor evictionExecutorOnStop = (ThreadPoolExecutor) evictorExecutorField.get(null);
-            assertEquals(1, evictionExecutorOnStop.getQueue().size());
+            assertEquals(2, evictionExecutorOnStop.getQueue().size());
+            assertEquals(1, EvictionTimer.getNumTasks());
 
             // Stop evictor #2
-            EvictionTimer.cancel(evictor2, BaseObjectPoolConfig.DEFAULT_EVICTOR_SHUTDOWN_TIMEOUT_MILLIS,
-                    TimeUnit.MILLISECONDS);
+            EvictionTimer.cancel(evictor2, BaseObjectPoolConfig.DEFAULT_EVICTOR_SHUTDOWN_TIMEOUT, false);
 
             // Assert that eviction objects are correctly cleaned
             // 1 - the evictor timer task is cancelled
@@ -100,6 +102,7 @@ public class TestEvictionTimer {
             assertTrue(sf.isCancelled());
             // 2- and, the eviction thread pool executor is freed
             assertNull(evictorExecutorField.get(null));
+            assertEquals(0, EvictionTimer.getNumTasks());
         }
     }
 }

@@ -43,9 +43,303 @@ The <action> type attribute can be add,update,fix,remove.
     <title>Apache Commons Pool Release Notes</title>
   </properties>
   <body>
-  <release version="2.8.0" date="2019-MM-DD" description="This is a maintenance release (Java 8).">
+  <release version="2.12.0" date="2021-MM-DD" description="This is a maintenance release (Java 8).">
+    <!-- FIX -->
+    <action dev="psteitz" type="fix" issue="POOL-401">
+       Ensure that capacity freed by invalidateObject is available to all keyed pools.
+    </action>
+    <action dev="psteitz" type="fix" due-to="Codievilky August" issue="POOL-391">
+       Ensure capacity freed by clear is made available to GKOP borrowers.
+    </action>
+    <action dev="ggregory" type="fix" issue="POOL-402" due-to="Cp-John, Phil Steitz, Bruno P. Kinoshita, Gary Gregory">
+       Check blockWhenExhausted in hasBorrowWaiters #116.
+    </action>
+    <!-- ADD -->
+    <action dev="ggregory" type="add" due-to="Gary Gregory">
+      Add PooledObject.getFullDuration().
+    </action>
+    <!-- UPDATE -->
+    <action dev="ggregory" type="update" due-to="Dependabot">
+      Bump spotbugs from 4.3.0 to 4.5.3 #94, #99, #106, #114, #122, #129.
+    </action>
+    <action dev="ggregory" type="update" due-to="Dependabot">
+      Bump spotbugs-maven-plugin from 4.3.0 to 4.5.3.0 #102, #110, #119, #125, #128.
+    </action>
+    <action dev="ggregory" type="update" due-to="Dependabot">
+      Bump junit-bom from 5.8.0-M1 to 5.8.2 #96, #100, #103, #120.
+    </action>
+    <action dev="ggregory" type="update" due-to="Dependabot">
+      Bump checkstyle from 8.45.1 to 9.2.1 #97, #104, #111, #121, #126.
+    </action>
+    <action dev="ggregory" type="update" due-to="Dependabot">
+      Bump maven-pmd-plugin from 3.14.0 to 3.15.0 #101.
+    </action>
+    <action dev="ggregory" type="update" due-to="Dependabot">
+      Bump biz.aQute.bndlib from 5.3.0 to 6.1.0 #105, #118.
+    </action>
+    <action dev="ggregory" type="update" due-to="Dependabot">
+      Bump actions/checkout from 2.3.4 to 2.4.0 #109, #112.
+    </action>
+    <action dev="kinow" type="update" due-to="Dependabot">
+      Bump actions/cache from 2.1.6 to 2.1.7 #117.
+    </action>
+    <action dev="kinow" type="update" due-to="Dependabot">
+      Bump maven-bundle-plugin from 5.1.3 to 5.1.4 #127.
+    </action>
+  </release>
+  <release version="2.11.1" date="2021-08-18" description="This is a maintenance release (Java 8).">
+    <!-- FIX -->
+    <action dev="ggregory" type="fix" due-to="Gary Gregory">
+      Getting a PooledObject's active duration returns a negative duration when the object is borrowed but not returned. Affects:
+      - PooledObject.getActiveDuration()
+      - PooledObject.getActiveTime()
+      - PooledObject.getActiveTimeMillis()
+    </action>
+    <action dev="ggregory" type="fix" due-to="Gary Gregory">
+      The default implementation of TrackedUse.getLastUsedInstant() uses seconds instead of milliseconds. 
+      This interface is not implemented within Apache Commons Pool but affects Apache Commons DBCP.
+    </action>
+    <action dev="ggregory" type="fix" due-to="Gary Gregory">
+      DefaultPooledObject.getIdleTime() drops nanoseconds on Java 9 and greater.
+    </action>
+    <action dev="ggregory" type="fix" due-to="Gary Gregory">
+      Fix field label in BaseGenericObjectPool toString() builder: From timeBetweenEvictionRunsMillis to durationBetweenEvictionRuns.
+    </action>
+    <action dev="ggregory" type="fix" due-to="Gary Gregory">
+      Fix field label in BaseObjectPoolConfig toString() builder: From maxWaitMillis to maxWaitDuration.
+    </action>
+    <action dev="ggregory" type="fix" due-to="Gary Gregory">
+      Fix field label in NoSuchElementException message for GenericObjectPool.borrowObject(Duration): From borrowMaxWaitMillis to borrowMaxWaitDuration.
+    </action>
+    <action dev="ggregory" type="fix" due-to="Gary Gregory">
+      Reimplement DefaultPooledObject.getIdleDuration() using Duration computation.
+    </action>
+    <action dev="ggregory" type="fix" due-to="Gary Gregory">
+      Reimplement BaseGenericObjectPool.maxBorrowWait as a Duration instead of a long.
+    </action>
+    <action dev="ggregory" type="fix" due-to="Arturo Bernal">
+      Minors Changes #89.
+    </action>
+    <!-- UPDATE -->
+    <action dev="ggregory" type="update" due-to="Dependabot">
+      Bump checkstyle from 8.45 to 8.45.1 #93.
+    </action>
+    <action dev="ggregory" type="update" due-to="Dependabot">
+      Bump spotbugs from 4.2.3 to 4.3.0 and ignore new medium warnings EI_EXPOSE_REP and EI_EXPOSE_REP2.
+    </action>
+  </release>
+  <release version="2.11.0" date="2021-08-08" description="This is a feature release (Java 8).">
+    <!-- FIX -->
+    <action dev="ggregory" type="fix" due-to="Gary Gregory">
+      Fix "[WARNING] Old version of checkstyle detected. Consider updating to >= v8.30." Update Checktyle to 8.44.
+    </action>
+    <action dev="ggregory" type="fix" due-to="Gary Gregory">
+      Make Duration setters use their respective default values when null.
+    </action>
+    <action dev="ggregory" type="fix" due-to="Gary Gregory">
+      Call swallowException(Exception) instead of printing exceptions to the console in GenericKeyedObjectPool.removeAbandoned(AbandonedConfig) and GenericObjectPool.removeAbandoned(AbandonedConfig).
+    </action>
+    <action dev="ggregory" type="fix" due-to="Arturo Bernal">
+      Fix Javadoc link reference #91.
+    </action>
+    <action dev="ggregory" type="fix" due-to="Arturo Bernal">
+      No need to initialize to default values. #90.
+    </action>
+    <!--  ADD -->
+    <action dev="ggregory" type="add" due-to="Gary Gregory">
+      Track timestamps with Instants instead of longs. 
+      There is currently no increased precision on Java 8, but starting with Java 9, the JRE SystemClock precision is increased usually down to microseconds, or tenth of microseconds, depending on the OS, Hardware, and JVM implementation.
+      Add and use: 
+      - DefaultPooledObject.getCreateInstant()
+      - DefaultPooledObject.getLastUsedInstant()
+      - PooledObject.getCreateInstant()
+      - PooledObject.getLastBorrowInstant()
+      - PooledObject.getLastReturnInstant()
+      - PooledObject.getLastUsedInstant()
+      - TrackedUse#getLastUsedInstant()
+    </action>
+    <action dev="ggregory" type="add" due-to="Gary Gregory">
+      Add BaseObjectPoolConfig.setEvictorShutdownTimeoutDuration(Duration), deprecate setEvictorShutdownTimeoutMillis(Duration).
+    </action>
+    <action dev="ggregory" type="add" due-to="Gary Gregory">
+      Add BaseGenericObjectPool.{get|set}MaxWaitDuration(Duration) and deprecate {get|set}MaxWaitMillis(long).
+    </action>
+    <action dev="ggregory" type="add" due-to="Gary Gregory">
+      Add BaseObjectPoolConfig.{get|set}MaxWaitDuration(Duration) and deprecate {get|set}MaxWaitMillis(long).
+    </action>
+    <action dev="ggregory" type="add" due-to="Gary Gregory">
+      Add and use Duration APIs instead of ints or longs.
+      - Add and use Duration APIs in BaseGenericObjectPool: getDurationBetweenEvictionRuns(), getEvictorShutdownTimeoutDuration(), getMinEvictableIdleDuration(), getSoftMinEvictableIdleDuration(), setMaxWait(Duration), setMinEvictableIdle(Duration), setSoftMinEvictableIdle(Duration).
+      - Add and use Duration APIs in BaseObjectPoolConfig: getDurationBetweenEvictionRuns(), getEvictorShutdownTimeoutDuration(),getMinEvictableIdleDuration(), getSoftMinEvictableIdleDuration().
+      - Add and use Duration APIs in EvictionConfig: getIdleEvictDuration(), getIdleSoftEvictDuration().
+      - Add and use Duration APIs in PooledObject: getIdleDuration(), getActiveDuration().
+      - No need to initialize instance variables to their default values.
+      - Update Javadocs.
+      - Update toString() implementations with duration labels.
+    </action>
+    <action issue="POOL-396" dev="ggregory" type="add" due-to="Jeremy Kong, Phil Steitz">
+      Handle validation exceptions during eviction. #85.
+    </action>
+    <action issue="POOL-395" dev="ggregory" type="add" due-to="Gary Gregory, Arash Nikoo">
+      Improve exception thrown in GenericObjectPool.borrowObject when pool is exhausted. Added BaseGenericObjectPool.setMessagesStatistics(boolean).
+    </action>
+    <action dev="ggregory" type="add" due-to="Gary Gregory">
+      Add and use AbandonedConfig.copy(AbandonedConfig) to fix CPD code duplication issues in GenericKeyedObjectPool and GenericObjectPool.
+    </action>
+    <action dev="ggregory" type="add" due-to="Gary Gregory">
+      Pull up AbandonedConfig and related methods from GenericKeyedObjectPool and GenericObjectPool to BaseGenericObjectPool (fix for CPD issues).
+      - BaseGenericObjectPool.getLogAbandoned()
+      - BaseGenericObjectPool.getRemoveAbandonedOnBorrow()
+      - BaseGenericObjectPool.getRemoveAbandonedOnMaintenance()
+      - BaseGenericObjectPool.getRemoveAbandonedTimeout()
+      - BaseGenericObjectPool.getRemoveAbandonedTimeoutDuration()
+      - BaseGenericObjectPool.isAbandonedConfig()
+      - BaseGenericObjectPool.setAbandonedConfig(AbandonedConfig)
+    </action>
+    <!--  UPDATES -->
+    <action dev="ggregory" type="fix" due-to="Gary Gregory">
+      Bump org.ow2.asm:asm-util from 9.1 to 9.2.
+    </action>
+    <action dev="ggregory" type="fix" due-to="Gary Gregory">
+      Bump com.github.spotbugs:spotbugs from 4.2.3 to 4.3.0.
+    </action>
+    <action dev="ggregory" type="fix" due-to="Dependabot">
+      Bump checkstyle from 8.44 to 8.45 #92.
+    </action>
+  </release>
+  <release version="2.10.0" date="2021-05-28" description="This is a feature release (Java 8).">
+    <!-- ADD -->
+    <action dev="ggregory" type="add" due-to="Gary Gregory">
+      Add and use java.time.Duration APIs timeouts instead of using ints for seconds.
+      See the site and its API comparison report for a list of the new Duration-based APIs.
+    </action>
+    <action dev="ggregory" type="add" due-to="JSurf, Gary Gregory, Phil Steitz">
+      Implement AbandonedConfig for GenericKeyedObjectPool #67.
+    </action>
+    <!-- FIXES -->
+    <action dev="ggregory" type="fix" due-to="Arturo Bernal">
+      Simplify Assertions in tests #77.
+    </action>
+    <action dev="ggregory" type="fix" due-to="Arturo Bernal">
+      Replace C-style array declaration with Java style #80.
+    </action>
+    <action dev="ggregory" type="fix" due-to="Arturo Bernal">
+      Use Objects.equals(); Use Anonymous type; Use method reference instead Lambda; Replace Loop with Collection.removeIf(). #81. 
+    </action>
+    <action dev="ggregory" type="fix" due-to="Arturo Bernal">
+      Use diamond operator. #82. 
+    </action>
+    <action dev="ggregory" type="fix" due-to="Arturo Bernal">
+      Code clean ups. #83.
+    </action>
+    <!-- UPDATE -->
+    <action dev="ggregory" type="update" due-to="Dependabot">
+      Bump spotbugs-maven-plugin from 4.0.4 to 4.2.1 #48, #53, #59, #62.
+    </action>
+    <action dev="ggregory" type="update" due-to="Dependabot, Gary Gregory">
+      Bump actions/setup-java from v1.4.2 to v2, #47.
+    </action>
+    <action dev="ggregory" type="update" due-to="Dependabot">
+      Bump junit from 4.13 to 4.13.1 #50.
+    </action>
+    <action dev="ggregory" type="update" due-to="Dependabot">
+      Bump biz.aQute.bndlib from 5.1.2 to 5.3.0, #51, #66.
+    </action>
+    <action dev="ggregory" type="update" due-to="Arturo Bernal" issue="POOL-389">
+      Migrate to JUnit 5 #57.
+    </action>
+    <action dev="ggregory" type="update" due-to="Arturo Bernal" issue="POOL-389">
+      Minor Improvements #58, #60.
+    </action>
+    <action dev="ggregory" type="update" due-to="Dependabot">
+      Bump actions/checkout from v2.3.3 to v2.3.4 #54.
+    </action>
+    <action dev="ggregory" type="update" due-to="Dependabot">
+      Bump maven-pmd-plugin from 3.13.0 to 3.14.0 #55.
+    </action>
+    <action dev="ggregory" type="update" due-to="Gary Gregory">
+      Update commons.japicmp.version 0.14.3 -> 0.15.3.
+    </action>
+    <action dev="ggregory" type="update" due-to="Dependabot, Gary Gregory">
+      Bump actions/cache from v2 to v2.1.6 #65, #75, #84.
+    </action>
+    <action dev="ggregory" type="update" due-to="Dependabot">
+      Bump maven-checkstyle-plugin from 3.1.1 to 3.1.2 #61.
+    </action>
+    <action dev="ggregory" type="update" due-to="Dependabot">
+      Bump asm-util from 9.0 to 9.1 #64.
+    </action>
+    <action dev="ggregory" type="update" due-to="Dependabot">
+      Bump spotbugs from 4.2.1 to 4.2.3 #68, #73, #74.
+    </action>
+    <action dev="ggregory" type="update" due-to="Dependabot, Gary Gregory">
+      Bump junit-bom from 5.7.1 to 5.8.0-M1 #76.
+    </action>
+    <action dev="ggregory" type="update" due-to="Dependabot">
+      Bump maven-bundle-plugin from 5.1.1 to 5.1.2 #70.
+    </action>
+    <action dev="ggregory" type="update" due-to="Dependabot">
+      Bump animal-sniffer-maven-plugin from 1.19 to 1.20.
+    </action>
+  </release>
+  <release version="2.9.0" date="2020-09-25" description="This is a minor release (Java 8).">
+    <action issue="POOL-387" dev="ggregory" type="update" due-to=" Phil Steitz">
+      Object factory destroy method should carry information on activation context.
+    </action>
+    <action dev="ggregory" type="update" due-to="Dependabot">
+      Update spotbugs from 4.0.6 to 4.1.3, #37, #41, #46.
+    </action>
+    <action dev="ggregory" type="update" due-to="Dependabot">
+      Update actions/checkout from v2.3.1 to v2.3.3 #56, #45.
+    </action>
+    <action dev="ggregory" type="update" due-to="Dependabot">
+      Update actions/setup-java from v1.4.0 to v1.4.2 #42.
+    </action>
+    <action dev="ggregory" type="update" due-to="Dependabot">
+      Update optional asm-util from 8.0.1 to 9.0 #44.
+    </action>
+  </release>
+  <release version="2.8.1" date="2020-07-27" description="This is a maintenance release (Java 8).">
+    <action dev="ggregory" issue="POOL-386" type="fix" due-to="Phil Steitz, Mark Thomas">
+      Refactored EvictionTimer usage tracking to fix POOL-386 and handle abandoned pools. #32.
+    </action>
+    <action dev="ggregory" type="fix" due-to="Prodigysov, Gary Gregory">
+      [Javadoc] Add missing @throws comment in PoolUtils. #27.
+    </action>
+    <action dev="ggregory" issue="POOL-384" type="update" due-to="Gary Gregory">
+      Update optional library org.ow2.asm:asm-util from 7.2 to 8.0.1.
+    </action>
+    <action dev="ggregory" issue="POOL-385" type="add" due-to="scholzi100">
+      Added Automatic-Module-Name to support JPMS #31.
+    </action>
+    <action dev="ggregory" type="update" due-to="Gary Gregory">
+      Update site reports from org.apache.bcel:bcel 6.4.1 to 6.5.0.
+    </action>
+    <action dev="ggregory" type="update" due-to="Gary Gregory">
+      Update site reports from maven-pmd-plugin 3.12.0 to 3.13.0.
+    </action>
+    <action dev="ggregory" type="update" due-to="Gary Gregory">
+      Update build from biz.aQute.bnd:biz.aQute.bndlib 5.1.0 -> 5.1.2.
+    </action>
+    <action dev="ggregory" type="update" due-to="Dependabot">
+      Update actions/checkout from v1 to v2.3.1 #33.
+    </action>
+    <action dev="ggregory" type="update" due-to="Dependabot">
+      Update commons-parent from 50 to 51 #36.
+    </action>
+    <action dev="ggregory" type="update" due-to="Gary Gregory">
+      Update Checkstyle plugin from 3.0.0 to 3.1.1.
+    </action>
+    <action dev="ggregory" type="update" due-to="Gary Gregory">
+      Update JApiCmp from 0.14.1 to 0.14.3.
+    </action>
+    <action dev="ggregory" type="update" due-to="Gary Gregory">
+      Update animal-sniffer-maven-plugin from 1.16 to 1.19.
+    </action>
+  </release>
+  <release version="2.8.0" date="2019-12-05" description="This is a maintenance release (Java 8).">
     <action dev="ggregory" issue="POOL-374" type="fix" due-to="Gary Gregory, Phil Steitz">
-       org.apache.commons.pool2.impl.GenericKeyedObjectPool.returnObject(K, T) should throw IllegalStateException instead of NullPointerException when a key is not found in the pool map.
+       GenericKeyedObjectPool.returnObject(K, T) should throw IllegalStateException instead of NullPointerException when a key is not found in the pool map.
     </action>
     <action dev="ggregory" issue="POOL-375" type="update" due-to="Gary Gregory">
        Update optional library cglib from 3.2.12 to 3.3.0.
@@ -70,6 +364,12 @@ The <action> type attribute can be add,update,fix,remove.
     </action>
     <action dev="ggregory" issue="POOL-380" type="add" due-to="Gary Gregory">
       Deprecate PoolUtils.prefill(KeyedObjectPool, Collection, int) in favor of KeyedObjectPool.addObjects(Collection, int).
+    </action>
+    <action dev="ggregory" type="fix" due-to="emopers">
+      Close BufferedOutputStream in test before calling toString on underlying BufferedOutputStream #26.
+    </action>
+    <action dev="ggregory" type="fix" due-to="Prodigysov">
+      [Javadoc] Add missing @throws comment in SoftReferenceObjectPool. #28.
     </action>
   </release>
   <release version="2.7.0" date="2019-07-25" description="This is a feature release (Java 8).">
@@ -427,7 +727,7 @@ including bugfixes and test case improvements.">
 in high concurrency environments. Pools now provide a mechanism for tracking
 objects that have been borrowed from the pool but not returned. There have been
 numerous API changes to support these and other new features as well as to
-clarify behaviour and improve consistency across the API. This release requires
+clarify behavior and improve consistency across the API. This release requires
 JDK level 1.6 or above.">
     <action issue="POOL-211" dev="markt" type="add" due-to="Brad Koehn">
       Add support for proxy wrappers to ObjectPool and KeyedObjectPool. The
@@ -468,7 +768,7 @@ JDK level 1.6 or above.">
       GOP/GKOP don't consistently use getters to access fields
     </action>
     <action issue="POOL-199" dev="markt" type="fix" >
-      GOP/GKOP evict() method is not synchronised and is not thread-safe
+      GOP/GKOP evict() method is not synchronized and is not thread-safe
     </action>
     <action issue="POOL-197" dev="markt" type="fix" >
       PooledObject: risky init of lastBorrowTime &amp; lastReturnTime
@@ -499,7 +799,7 @@ JDK level 1.6 or above.">
       remove deprecated code and unnecessary code.
     </action>
     <action dev="markt" type="update">
-      Introduce an Enum (WhenExhaustedAction) to control pool behaviour when no
+      Introduce an Enum (WhenExhaustedAction) to control pool behavior when no
       more objects are available to allocate.
     </action>
     <action dev="markt" type="update">

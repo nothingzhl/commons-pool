@@ -38,7 +38,7 @@ public class ProxiedObjectPool<T> implements ObjectPool<T> {
 
 
     /**
-     * Create a new proxied object pool.
+     * Constructs a new proxied object pool.
      *
      * @param pool  The object pool to wrap
      * @param proxySource The source of the proxy objects
@@ -48,8 +48,12 @@ public class ProxiedObjectPool<T> implements ObjectPool<T> {
         this.proxySource = proxySource;
     }
 
+    @Override
+    public void addObject() throws Exception, IllegalStateException,
+            UnsupportedOperationException {
+        pool.addObject();
+    }
 
-    // --------------------------------------------------- ObjectPool<T> methods
 
     @SuppressWarnings("unchecked")
     @Override
@@ -59,42 +63,7 @@ public class ProxiedObjectPool<T> implements ObjectPool<T> {
         if (pool instanceof UsageTracking) {
             usageTracking = (UsageTracking<T>) pool;
         }
-        final T pooledObject = pool.borrowObject();
-        final T proxy = proxySource.createProxy(pooledObject, usageTracking);
-        return proxy;
-    }
-
-
-    @Override
-    public void returnObject(final T proxy) throws Exception {
-        final T pooledObject = proxySource.resolveProxy(proxy);
-        pool.returnObject(pooledObject);
-    }
-
-
-    @Override
-    public void invalidateObject(final T proxy) throws Exception {
-        final T pooledObject = proxySource.resolveProxy(proxy);
-        pool.invalidateObject(pooledObject);
-    }
-
-
-    @Override
-    public void addObject() throws Exception, IllegalStateException,
-            UnsupportedOperationException {
-        pool.addObject();
-    }
-
-
-    @Override
-    public int getNumIdle() {
-        return pool.getNumIdle();
-    }
-
-
-    @Override
-    public int getNumActive() {
-        return pool.getNumActive();
+        return proxySource.createProxy(pool.borrowObject(), usageTracking);
     }
 
 
@@ -109,6 +78,29 @@ public class ProxiedObjectPool<T> implements ObjectPool<T> {
         pool.close();
     }
 
+
+    @Override
+    public int getNumActive() {
+        return pool.getNumActive();
+    }
+
+
+    @Override
+    public int getNumIdle() {
+        return pool.getNumIdle();
+    }
+
+
+    @Override
+    public void invalidateObject(final T proxy) throws Exception {
+        pool.invalidateObject(proxySource.resolveProxy(proxy));
+    }
+
+
+    @Override
+    public void returnObject(final T proxy) throws Exception {
+        pool.returnObject(proxySource.resolveProxy(proxy));
+    }
 
     /**
      * @since 2.4.3

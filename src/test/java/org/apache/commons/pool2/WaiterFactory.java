@@ -18,8 +18,8 @@
 package org.apache.commons.pool2;
 
 import java.util.HashMap;
-import java.util.Map;
 import java.util.Iterator;
+import java.util.Map;
 
 import org.apache.commons.pool2.impl.DefaultPooledObject;
 
@@ -56,7 +56,7 @@ KeyedPooledObjectFactory<K,Waiter> {
     private final double passivateInvalidationProbability;
 
     /** Count of (makes - destroys) since last reset */
-    private long activeCount = 0;
+    private long activeCount;
 
     /** Count of (makes - destroys) per key since last reset */
     private final Map<K,Integer> activeCounts = new HashMap<>();
@@ -66,6 +66,20 @@ KeyedPooledObjectFactory<K,Waiter> {
 
     /** Maximum of (makes - destroys) per key */
     private final long maxActivePerKey;  // GKOP 1.x calls this maxActive
+
+    public WaiterFactory(final long activateLatency, final long destroyLatency,
+            final long makeLatency, final long passivateLatency, final long validateLatency,
+            final long waiterLatency) {
+        this(activateLatency, destroyLatency, makeLatency, passivateLatency,
+                validateLatency, waiterLatency, Long.MAX_VALUE, Long.MAX_VALUE, 0);
+    }
+
+    public WaiterFactory(final long activateLatency, final long destroyLatency,
+            final long makeLatency, final long passivateLatency, final long validateLatency,
+            final long waiterLatency,final long maxActive) {
+        this(activateLatency, destroyLatency, makeLatency, passivateLatency,
+                validateLatency, waiterLatency, maxActive, Long.MAX_VALUE, 0);
+    }
 
     public WaiterFactory(final long activateLatency, final long destroyLatency,
             final long makeLatency, final long passivateLatency, final long validateLatency,
@@ -82,24 +96,24 @@ KeyedPooledObjectFactory<K,Waiter> {
         this.passivateInvalidationProbability = passivateInvalidationProbability;
     }
 
-    public WaiterFactory(final long activateLatency, final long destroyLatency,
-            final long makeLatency, final long passivateLatency, final long validateLatency,
-            final long waiterLatency) {
-        this(activateLatency, destroyLatency, makeLatency, passivateLatency,
-                validateLatency, waiterLatency, Long.MAX_VALUE, Long.MAX_VALUE, 0);
-    }
-
-    public WaiterFactory(final long activateLatency, final long destroyLatency,
-            final long makeLatency, final long passivateLatency, final long validateLatency,
-            final long waiterLatency,final long maxActive) {
-        this(activateLatency, destroyLatency, makeLatency, passivateLatency,
-                validateLatency, waiterLatency, maxActive, Long.MAX_VALUE, 0);
+    @Override
+    public void activateObject(final K key, final PooledObject<Waiter> obj) throws Exception {
+        activateObject(obj);
     }
 
     @Override
     public void activateObject(final PooledObject<Waiter> obj) throws Exception {
         doWait(activateLatency);
         obj.getObject().setActive(true);
+    }
+
+    @Override
+    public void destroyObject(final K key,final PooledObject<Waiter> obj) throws Exception {
+        destroyObject(obj);
+        synchronized (this) {
+            final Integer count = activeCounts.get(key);
+            activeCounts.put(key, Integer.valueOf(count.intValue() - 1));
+        }
     }
 
     @Override
@@ -111,6 +125,20 @@ KeyedPooledObjectFactory<K,Waiter> {
         synchronized (this) {
             activeCount--;
         }
+    }
+
+    protected void doWait(final long latency) {
+        if (latency == 0) {
+            return;
+        }
+        Waiter.sleepQuietly(latency);
+    }
+
+    /**
+     * @return the maxActive
+     */
+    public synchronized long getMaxActive() {
+        return maxActive;
     }
 
     @Override
@@ -125,67 +153,6 @@ KeyedPooledObjectFactory<K,Waiter> {
         }
         doWait(makeLatency);
         return new DefaultPooledObject<>(new Waiter(false, true, waiterLatency));
-    }
-
-    @Override
-    public void passivateObject(final PooledObject<Waiter> obj) throws Exception {
-        obj.getObject().setActive(false);
-        doWait(passivateLatency);
-        if (Math.random() < passivateInvalidationProbability) {
-            obj.getObject().setValid(false);
-        }
-    }
-
-    @Override
-    public boolean validateObject(final PooledObject<Waiter> obj) {
-        doWait(validateLatency);
-        return obj.getObject().isValid();
-    }
-
-    protected void doWait(final long latency) {
-        if (latency == 0) {
-            return;
-        }
-        try {
-            Thread.sleep(latency);
-        } catch (final InterruptedException ex) {
-            // ignore
-        }
-    }
-
-    public synchronized void reset() {
-        activeCount = 0;
-        if (activeCounts.isEmpty()) {
-            return;
-        }
-        final Iterator<K> it = activeCounts.keySet().iterator();
-        while (it.hasNext()) {
-            final K key = it.next();
-            activeCounts.put(key, Integer.valueOf(0));
-        }
-    }
-
-    /**
-     * @return the maxActive
-     */
-    public synchronized long getMaxActive() {
-        return maxActive;
-    }
-
-    // KeyedPoolableObjectFactory methods
-
-    @Override
-    public void activateObject(final K key, final PooledObject<Waiter> obj) throws Exception {
-        activateObject(obj);
-    }
-
-    @Override
-    public void destroyObject(final K key,final PooledObject<Waiter> obj) throws Exception {
-        destroyObject(obj);
-        synchronized (this) {
-            final Integer count = activeCounts.get(key);
-            activeCounts.put(key, Integer.valueOf(count.intValue() - 1));
-        }
     }
 
     @Override
@@ -208,14 +175,43 @@ KeyedPooledObjectFactory<K,Waiter> {
         return makeObject();
     }
 
+    // KeyedPoolableObjectFactory methods
+
     @Override
     public void passivateObject(final K key, final PooledObject<Waiter> obj) throws Exception {
         passivateObject(obj);
     }
 
     @Override
+    public void passivateObject(final PooledObject<Waiter> obj) throws Exception {
+        obj.getObject().setActive(false);
+        doWait(passivateLatency);
+        if (Math.random() < passivateInvalidationProbability) {
+            obj.getObject().setValid(false);
+        }
+    }
+
+    public synchronized void reset() {
+        activeCount = 0;
+        if (activeCounts.isEmpty()) {
+            return;
+        }
+        final Iterator<K> it = activeCounts.keySet().iterator();
+        while (it.hasNext()) {
+            final K key = it.next();
+            activeCounts.put(key, Integer.valueOf(0));
+        }
+    }
+
+    @Override
     public boolean validateObject(final K key, final PooledObject<Waiter> obj) {
         return validateObject(obj);
+    }
+
+    @Override
+    public boolean validateObject(final PooledObject<Waiter> obj) {
+        doWait(validateLatency);
+        return obj.getObject().isValid();
     }
 
 }

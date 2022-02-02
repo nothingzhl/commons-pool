@@ -27,32 +27,93 @@ import java.util.concurrent.atomic.AtomicInteger;
  * <p>This class is *not* threadsafe.</p>
  */
 public class Waiter {
-    private static AtomicInteger instanceCount = new AtomicInteger();
-    private boolean active = false;
-    private boolean valid = true;
-    private long latency = 0;
-    private long lastPassivated = 0;
-    private long lastIdleTimeMs = 0;
-    private long passivationCount = 0;
-    private long validationCount = 0;
+    private static final AtomicInteger instanceCount = new AtomicInteger();
+    /** TODO Reuse Apache Commons Lang ThreadUtils */
+    public static void sleepQuietly(final long millis) {
+        try {
+            Thread.sleep(millis);
+        } catch (final InterruptedException e) {
+            // be quiet
+        }
+    }
+    private boolean active;
+    private boolean valid;
+    private long latency;
+    private long lastPassivatedMillis;
+    private long lastIdleTimeMillis;
+    private long passivationCount;
+    private long validationCount;
+
     private final int id = instanceCount.getAndIncrement();
 
     public Waiter(final boolean active, final boolean valid, final long latency) {
         this.active = active;
         this.valid = valid;
         this.latency = latency;
-        this.lastPassivated = System.currentTimeMillis();
+        this.lastPassivatedMillis = System.currentTimeMillis();
     }
 
     /**
-     * Wait for {@link #getLatency()} ms.
+     * Wait for {@link #getLatency()} milliseconds.
      */
     public void doWait() {
-        try {
-            Thread.sleep(latency);
-        } catch (final InterruptedException ex) {
-            // ignore
+        sleepQuietly(latency);
+    }
+
+    @Override
+    public boolean equals(final Object obj) {
+        if (!(obj instanceof Waiter)) {
+            return false;
         }
+        return obj.hashCode() == id;
+    }
+
+    /**
+     * <p>Returns the last idle time for this instance in ms.</p>
+     *
+     * <p>When an instance is created, and each subsequent time it is passivated,
+     * the {@link #getLastPassivatedMillis() lastPassivated} property is updated with the
+     * current time.  When the next activation occurs, {@code lastIdleTime} is
+     * updated with the elapsed time since passivation.<p>
+     *
+     * @return last idle time
+     */
+    public long getLastIdleTimeMillis() {
+        return lastIdleTimeMillis;
+    }
+
+    /**
+     * <p>Returns the system time of this instance's last passivation.</p>
+     *
+     * <p>When an instance is created, this field is initialized to the system time.</p>
+     *
+     * @return time of last passivation
+     */
+    public long getLastPassivatedMillis() {
+        return lastPassivatedMillis;
+    }
+
+    public long getLatency() {
+        return latency;
+    }
+
+    /**
+     * @return how many times this instance has been passivated
+     */
+    public long getPassivationCount() {
+        return passivationCount;
+    }
+
+    /**
+     * @return how many times this instance has been validated
+     */
+    public long getValidationCount() {
+        return validationCount;
+    }
+
+    @Override
+    public int hashCode() {
+        return id;
     }
 
     /**
@@ -64,9 +125,14 @@ public class Waiter {
         return active;
     }
 
+    public boolean isValid() {
+        validationCount++;
+        return valid;
+    }
+
     /**
-     * <p>Sets the active state and updates {@link #getLastIdleTimeMs() lastIdleTime}
-     * or {@link #getLastPassivated() lastPassivated} as appropriate.</p>
+     * <p>Sets the active state and updates {@link #getLastIdleTimeMillis() lastIdleTime}
+     * or {@link #getLastPassivatedMillis() lastPassivated} as appropriate.</p>
      *
      * <p>If the active state is changing from inactive to active, lastIdleTime
      * is updated with the current time minus lastPassivated.  If the state is
@@ -75,7 +141,7 @@ public class Waiter {
      *
      * <p>{@link WaiterFactory#activateObject(PooledObject)} and
      * {@link WaiterFactory#passivateObject(PooledObject)} invoke this method on
-     * their actual parameter, passing <code>true</code> and <code>false</code>,
+     * their actual parameter, passing {@code true} and {@code false},
      * respectively.</p>
      *
      * @param active new active state
@@ -86,82 +152,21 @@ public class Waiter {
             return;
         }
         this.active = active;
-        final long currentTime = System.currentTimeMillis();
+        final long currentTimeMillis = System.currentTimeMillis();
         if (active) {  // activating
-            lastIdleTimeMs = currentTime - lastPassivated;
+            lastIdleTimeMillis = currentTimeMillis - lastPassivatedMillis;
         } else {       // passivating
-            lastPassivated = currentTime;
+            lastPassivatedMillis = currentTimeMillis;
             passivationCount++;
         }
-    }
-
-    public long getLatency() {
-        return latency;
     }
 
     public void setLatency(final long latency) {
         this.latency = latency;
     }
 
-    public boolean isValid() {
-        validationCount++;
-        return valid;
-    }
-
     public void setValid(final boolean valid) {
         this.valid = valid;
-    }
-
-    /**
-     * <p>Returns the system time of this instance's last passivation.</p>
-     *
-     * <p>When an instance is created, this field is initialized to the system time.</p>
-     *
-     * @return time of last passivation
-     */
-    public long getLastPassivated() {
-        return lastPassivated;
-    }
-
-    /**
-     * <p>Returns the last idle time for this instance in ms.</p>
-     *
-     * <p>When an instance is created, and each subsequent time it is passivated,
-     * the {@link #getLastPassivated() lastPassivated} property is updated with the
-     * current time.  When the next activation occurs, <code>lastIdleTime</code> is
-     * updated with the elapsed time since passivation.<p>
-     *
-     * @return last idle time
-     */
-    public long getLastIdleTimeMs() {
-        return lastIdleTimeMs;
-    }
-
-    /**
-     * @return how many times this instance has been validated
-     */
-    public long getValidationCount() {
-        return validationCount;
-    }
-
-    /**
-     * @return how many times this instance has been passivated
-     */
-    public long getPassivationCount() {
-        return passivationCount;
-    }
-
-    @Override
-    public int hashCode() {
-        return id;
-    }
-
-    @Override
-    public boolean equals(final Object obj) {
-        if (!(obj instanceof Waiter)) {
-            return false;
-        }
-        return obj.hashCode() == id;
     }
 
     @Override
@@ -170,8 +175,8 @@ public class Waiter {
         buff.append("ID = " + id + '\n');
         buff.append("valid = " + valid + '\n');
         buff.append("active = " + active + '\n');
-        buff.append("lastPassivated = " + lastPassivated + '\n');
-        buff.append("lastIdleTimeMs = " + lastIdleTimeMs + '\n');
+        buff.append("lastPassivated = " + lastPassivatedMillis + '\n');
+        buff.append("lastIdleTimeMs = " + lastIdleTimeMillis + '\n');
         buff.append("latency = " + latency + '\n');
         return buff.toString();
     }

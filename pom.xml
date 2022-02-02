@@ -24,11 +24,11 @@
   <parent>
     <groupId>org.apache.commons</groupId>
     <artifactId>commons-parent</artifactId>
-    <version>48</version>
+    <version>52</version>
   </parent>
 
   <artifactId>commons-pool2</artifactId>
-  <version>2.8.0-SNAPSHOT</version>
+  <version>2.12.0-SNAPSHOT</version>
   <name>Apache Commons Pool</name>
 
   <inceptionYear>2001</inceptionYear>
@@ -102,9 +102,19 @@
       <organization>The Apache Software Foundation</organization>
     </developer>
     <developer>
-      <name>Gary Gregory</name>
       <id>ggregory</id>
+      <name>Gary Gregory</name>
+      <email>ggregory at apache.org</email>
+      <url>https://www.garygregory.com</url>
       <organization>The Apache Software Foundation</organization>
+      <organizationUrl>https://www.apache.org/</organizationUrl>      
+      <roles>
+        <role>PMC Member</role>
+      </roles>
+      <timezone>America/New_York</timezone>
+      <properties>
+        <picUrl>https://people.apache.org/~ggregory/img/garydgregory80.png</picUrl>
+      </properties>
     </developer>
     <developer>
       <name>Matt Sicker</name>
@@ -121,12 +131,6 @@
 
   <dependencies>
     <dependency>
-      <groupId>junit</groupId>
-      <artifactId>junit</artifactId>
-      <version>4.12</version>
-      <scope>test</scope>
-    </dependency>
-    <dependency>
       <groupId>cglib</groupId>
       <artifactId>cglib</artifactId>
       <version>3.3.0</version>
@@ -135,10 +139,21 @@
     <dependency>
       <groupId>org.ow2.asm</groupId>
       <artifactId>asm-util</artifactId>
-      <version>7.2</version>
+      <version>9.2</version>
       <optional>true</optional>
     </dependency>
-    
+    <!-- testing -->
+    <dependency>
+      <groupId>org.junit.jupiter</groupId>
+      <artifactId>junit-jupiter</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.hamcrest</groupId>
+      <artifactId>hamcrest-library</artifactId>
+      <version>2.2</version>
+      <scope>test</scope>
+    </dependency>
   </dependencies>
 
   <distributionManagement>
@@ -159,7 +174,7 @@
     <commons.module.name>org.apache.commons.pool2</commons.module.name>
     <commons.rc.version>RC1</commons.rc.version>
     <!-- Java 8 -->
-    <commons.release.version>2.8.0</commons.release.version>
+    <commons.release.version>2.12.0</commons.release.version>
     <commons.release.desc>(Java 8)</commons.release.desc>
     <!-- Java 7 -->
     <commons.release.2.version>2.6.2</commons.release.2.version>
@@ -167,11 +182,9 @@
     <!-- Java 6 -->
     <commons.release.3.version>2.4.3</commons.release.3.version>
     <commons.release.3.desc>(Java 6)</commons.release.3.desc>
-    <commons.release.3.hash>sha256</commons.release.3.hash>
     <!-- Java 5 -->
     <commons.release.4.version>1.6</commons.release.4.version>
     <commons.release.4.desc>(Java 5)</commons.release.4.desc>
-    <commons.release.4.hash>sha256</commons.release.4.hash>
     <commons.release.4.binary.suffix>-bin</commons.release.4.binary.suffix>
     <!-- override parent name, because 1.x uses different artifactId -->
     <commons.release.4.name>commons-pool-${commons.release.4.version}</commons.release.4.name>
@@ -179,22 +192,42 @@
     <commons.jira.pid>12310488</commons.jira.pid>
     <commons.scmPubCheckoutDirectory>site-content</commons.scmPubCheckoutDirectory>
     <commons.osgi.import>net.sf.cglib.proxy;resolution:=optional,*</commons.osgi.import>
-    <commons.animal-sniffer.version>1.16</commons.animal-sniffer.version>
+    <commons.animal-sniffer.version>1.20</commons.animal-sniffer.version>
+    <commons.checkstyle-plugin.version>3.1.2</commons.checkstyle-plugin.version>
+    <commons.checkstyle.version>9.2.1</commons.checkstyle.version>
+    <commons.felix.version>5.1.4</commons.felix.version>
+    <spotbugs.plugin.version>4.5.3.0</spotbugs.plugin.version>
+    <spotbugs.impl.version>4.5.3</spotbugs.impl.version>
 
     <!-- Commons Release Plugin -->
-    <commons.bc.version>2.7.0</commons.bc.version>
+    <commons.bc.version>2.11.1</commons.bc.version>
     <commons.release.isDistModule>true</commons.release.isDistModule>
     <commons.releaseManagerName>Gary Gregory</commons.releaseManagerName>    
     <commons.releaseManagerKey>86fdc7e2a11262cb</commons.releaseManagerKey>
     
-    <commons.japicmp.version>0.14.1</commons.japicmp.version>
+    <commons.japicmp.version>0.15.3</commons.japicmp.version>
+    <clirr.skip>true</clirr.skip>
     <japicmp.skip>false</japicmp.skip>
+    <junit.version>5.8.2</junit.version>
+    <spotbugs.skip>false</spotbugs.skip>
   </properties> 
 
   <build>
-      <defaultGoal>clean verify apache-rat:check japicmp:cmp javadoc:javadoc</defaultGoal>
+      <defaultGoal>clean verify apache-rat:check checkstyle:check japicmp:cmp javadoc:javadoc spotbugs:check</defaultGoal>
       <pluginManagement>
         <plugins>
+          <plugin>
+            <groupId>org.apache.felix</groupId>
+            <artifactId>maven-bundle-plugin</artifactId>
+            <version>${commons.felix.version}</version>
+            <dependencies>
+              <dependency>
+                <groupId>biz.aQute.bnd</groupId>
+                <artifactId>biz.aQute.bndlib</artifactId>
+                <version>6.1.0</version>
+              </dependency>
+            </dependencies>
+          </plugin>
           <plugin>
             <groupId>org.apache.maven.plugins</groupId>
             <artifactId>maven-release-plugin</artifactId>
@@ -210,12 +243,45 @@
             <artifactId>maven-project-info-reports-plugin</artifactId>
             <version>${commons.project-info.version}</version>
             <dependencies>
+              <!-- Fix org.apache.bcel.classfile.ClassFormatException: Invalid byte tag in constant pool: 19 -->
               <dependency>
                 <groupId>org.apache.bcel</groupId>
                 <artifactId>bcel</artifactId>
-                <version>6.4.1</version>
+                <version>6.5.0</version>
               </dependency>
             </dependencies>
+          </plugin>
+          <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-checkstyle-plugin</artifactId>
+            <version>${commons.checkstyle-plugin.version}</version>
+            <dependencies>
+              <dependency>
+                <groupId>com.puppycrawl.tools</groupId>
+                <artifactId>checkstyle</artifactId>
+                <version>${commons.checkstyle.version}</version>
+              </dependency>
+            </dependencies>
+            <configuration>
+              <configLocation>${basedir}/checkstyle.xml</configLocation>
+              <enableRulesSummary>false</enableRulesSummary>
+              <headerLocation>${basedir}/license-header.txt</headerLocation>
+            </configuration>
+          </plugin>
+          <plugin>
+            <groupId>com.github.spotbugs</groupId>
+            <artifactId>spotbugs-maven-plugin</artifactId>
+            <version>${spotbugs.plugin.version}</version>
+            <dependencies>
+              <dependency>
+                <groupId>com.github.spotbugs</groupId>
+                <artifactId>spotbugs</artifactId>
+                <version>${spotbugs.impl.version}</version>
+              </dependency>
+            </dependencies>
+            <configuration>
+              <excludeFilterFile>${basedir}/findbugs-exclude-filter.xml</excludeFilterFile>
+            </configuration>
           </plugin>
         </plugins>
       </pluginManagement>
@@ -236,6 +302,7 @@
         <plugin>
           <groupId>org.apache.maven.plugins</groupId>
           <artifactId>maven-surefire-plugin</artifactId>
+          <version>3.0.0-M5</version>
             <configuration>
              <!-- Don't allow test to run for more than 30 minutes -->
               <forkedProcessTimeoutInSeconds>1800</forkedProcessTimeoutInSeconds>
@@ -285,7 +352,18 @@
             </overrideCompatibilityChangeParameters>
           </parameter>
         </configuration>
-      </plugin>    
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-jar-plugin</artifactId>
+        <configuration>
+          <archive>
+            <manifestEntries>
+              <Automatic-Module-Name>${commons.module.name}</Automatic-Module-Name>
+            </manifestEntries>
+          </archive>
+        </configuration>
+      </plugin>
       </plugins>
     </build>
 
@@ -311,22 +389,10 @@
         <plugin>
           <groupId>org.apache.maven.plugins</groupId>
           <artifactId>maven-checkstyle-plugin</artifactId>
-          <version>3.0.0</version>
-          <configuration>
-            <configLocation>${basedir}/checkstyle.xml</configLocation>
-            <enableRulesSummary>false</enableRulesSummary>
-            <headerLocation>${basedir}/license-header.txt</headerLocation>
-          </configuration>
         </plugin>
         <plugin>
-          <groupId>org.codehaus.mojo</groupId>
-          <artifactId>findbugs-maven-plugin</artifactId>
-          <version>3.0.5</version>
-          <configuration>
-            <threshold>Normal</threshold>
-            <effort>Default</effort>
-            <excludeFilterFile>${basedir}/findbugs-exclude-filter.xml</excludeFilterFile>
-          </configuration>
+          <groupId>com.github.spotbugs</groupId>
+          <artifactId>spotbugs-maven-plugin</artifactId>
         </plugin>
         <plugin>
           <groupId>org.apache.rat</groupId>
@@ -359,7 +425,7 @@
         </plugin>    
         <plugin>
           <artifactId>maven-pmd-plugin</artifactId>
-          <version>3.12.0</version>
+          <version>3.15.0</version>
           <configuration>
             <targetJdk>${maven.compiler.target}</targetJdk>
           </configuration>
@@ -374,6 +440,18 @@
         </plugin>
     </plugins>
   </reporting>
+
+  <dependencyManagement>
+    <dependencies>
+      <dependency>
+        <groupId>org.junit</groupId>
+        <artifactId>junit-bom</artifactId>
+        <version>${junit.version}</version>
+        <type>pom</type>
+        <scope>import</scope>
+      </dependency>
+    </dependencies>
+  </dependencyManagement>
     
   <profiles>
     <profile>
@@ -387,16 +465,25 @@
       </properties>
     </profile>
     <profile>
-      <id>java11+</id>
+      <id>java16</id>
+      <!-- For testing with CGLIB on Java 16 and 17-ea. -->
       <activation>
-        <jdk>[11,)</jdk>
+        <jdk>[16,)</jdk>
       </activation>
-      <properties>
-        <!-- Workaround for https://bugs.openjdk.java.net/browse/JDK-8212233
-             which causes javadoc to fail with "javadoc: error - The code being documented uses modules
-             but the packages defined in https://docs.oracle.com/javase/8/docs/api/ are in the unnamed module."  -->
-        <maven.javadoc.skip>true</maven.javadoc.skip>
-      </properties>
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-surefire-plugin</artifactId>
+            <configuration>
+              <argLine>
+                --illegal-access=permit
+                --add-opens java.base/java.lang=ALL-UNNAMED                     
+              </argLine>
+            </configuration>
+          </plugin>
+        </plugins>
+      </build>
     </profile>
   </profiles>
 

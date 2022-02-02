@@ -16,19 +16,20 @@
  */
 package org.apache.commons.pool2.impl;
 
-import org.junit.Assert;
-import org.junit.Test;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.io.PrintWriter;
 import java.io.StringWriter;
 
+import org.junit.jupiter.api.Test;
+
 public class NoOpCallStackTest {
     @Test
-    public void printStackTraceIsNoOp() throws Exception {
+    public void printStackTraceIsNoOp() {
         final CallStack stack = NoOpCallStack.INSTANCE;
         stack.fillInStackTrace();
         final StringWriter writer = new StringWriter();
         stack.printStackTrace(new PrintWriter(writer));
-        Assert.assertEquals("", writer.toString());
+        assertEquals("", writer.toString());
     }
 }

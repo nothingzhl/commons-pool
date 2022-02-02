@@ -14,23 +14,29 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.commons.pool2;
+
+package org.apache.commons.pool2.impl;
+
+import java.time.Duration;
 
 /**
- * This interface may be implemented by an object pool to enable clients (primarily those clients that wrap pools to
- * provide pools with extended features) to provide additional information to the pool relating to object using allowing
- * more informed decisions and reporting to be made regarding abandoned objects.
- *
- * @param <T> The type of object provided by the pool.
- *
- * @since 2.0
+ * Constants used in tests.
  */
-public interface UsageTracking<T> {
+public class TestConstants {
 
     /**
-     * Called every time a pooled object is used to enable the pool to better track borrowed objects.
-     *
-     * @param pooledObject The object that is being used.
+     * A duration of one second.
      */
-    void use(T pooledObject);
+    public static final Duration ONE_SECOND_DURATION = Duration.ofSeconds(1);
+
+    /**
+     * A duration of one minute.
+     */
+    public static final Duration ONE_MINUTE_DURATION = Duration.ofMinutes(1);
+
+    /**
+     * A duration of one millisecond.
+     */
+    public static final Duration ONE_MILLISECOND_DURATION = Duration.ofMillis(1);
+
 }

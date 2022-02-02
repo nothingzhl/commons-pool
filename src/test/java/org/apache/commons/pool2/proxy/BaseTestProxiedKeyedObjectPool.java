@@ -16,29 +16,89 @@
  */
 package org.apache.commons.pool2.proxy;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import java.io.PrintWriter;
+import java.io.StringWriter;
+import java.time.Duration;
 
 import org.apache.commons.pool2.BaseKeyedPooledObjectFactory;
 import org.apache.commons.pool2.KeyedObjectPool;
 import org.apache.commons.pool2.KeyedPooledObjectFactory;
 import org.apache.commons.pool2.PooledObject;
+import org.apache.commons.pool2.impl.AbandonedConfig;
 import org.apache.commons.pool2.impl.DefaultPooledObject;
 import org.apache.commons.pool2.impl.GenericKeyedObjectPool;
 import org.apache.commons.pool2.impl.GenericKeyedObjectPoolConfig;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+
 
 
 public abstract class BaseTestProxiedKeyedObjectPool {
 
+    private static class TestKeyedObjectFactory extends
+            BaseKeyedPooledObjectFactory<String,TestObject> {
+
+        @Override
+        public TestObject create(final String key) throws Exception {
+            return new TestObjectImpl();
+        }
+        @Override
+        public PooledObject<TestObject> wrap(final TestObject value) {
+            return new DefaultPooledObject<>(value);
+        }
+    }
+    protected interface TestObject {
+        String getData();
+        void setData(String data);
+    }
+
+    private static class TestObjectImpl implements TestObject {
+
+        private String data;
+
+        @Override
+        public String getData() {
+            return data;
+        }
+
+        @Override
+        public void setData(final String data) {
+            this.data = data;
+        }
+    }
+
     private static final String KEY1 = "key1";
+
+
     private static final String DATA1 = "data1";
 
-    private KeyedObjectPool<String,TestObject> pool = null;
+    private static final Duration ABANDONED_TIMEOUT_SECS = Duration.ofSeconds(3);
 
-    @Before
+    private KeyedObjectPool<String,TestObject> pool;
+
+    private StringWriter log;
+
+
+    protected abstract ProxySource<TestObject> getproxySource();
+
+
+    @BeforeEach
     public void setUp() {
+        log = new StringWriter();
+
+        final PrintWriter pw = new PrintWriter(log);
+        final AbandonedConfig abandonedConfig = new AbandonedConfig();
+        abandonedConfig.setLogAbandoned(true);
+        abandonedConfig.setRemoveAbandonedOnBorrow(true);
+        abandonedConfig.setUseUsageTracking(true);
+        abandonedConfig.setRemoveAbandonedTimeout(ABANDONED_TIMEOUT_SECS);
+        abandonedConfig.setLogWriter(pw);
+
         final GenericKeyedObjectPoolConfig<TestObject> config = new GenericKeyedObjectPoolConfig<>();
         config.setMaxTotal(3);
 
@@ -48,45 +108,13 @@ public abstract class BaseTestProxiedKeyedObjectPool {
         @SuppressWarnings("resource")
         final KeyedObjectPool<String, TestObject> innerPool =
                 new GenericKeyedObjectPool<>(
-                        factory, config);
+                        factory, config, abandonedConfig);
 
         pool = new ProxiedKeyedObjectPool<>(innerPool, getproxySource());
     }
 
 
-    protected abstract ProxySource<TestObject> getproxySource();
-
     @Test
-    public void testBorrowObject() throws Exception {
-        final TestObject obj = pool.borrowObject(KEY1);
-        assertNotNull(obj);
-
-        // Make sure proxied methods are working
-        obj.setData(DATA1);
-        assertEquals(DATA1, obj.getData());
-
-        pool.returnObject(KEY1, obj);
-    }
-
-
-    @Test(expected=IllegalStateException.class)
-    public void testAccessAfterReturn() throws Exception {
-        final TestObject obj = pool.borrowObject(KEY1);
-        assertNotNull(obj);
-
-        // Make sure proxied methods are working
-        obj.setData(DATA1);
-        assertEquals(DATA1, obj.getData());
-
-        pool.returnObject(KEY1, obj);
-
-        assertNotNull(obj);
-
-        obj.getData();
-    }
-
-
-    @Test(expected=IllegalStateException.class)
     public void testAccessAfterInvalidate() throws Exception {
         final TestObject obj = pool.borrowObject(KEY1);
         assertNotNull(obj);
@@ -99,7 +127,38 @@ public abstract class BaseTestProxiedKeyedObjectPool {
 
         assertNotNull(obj);
 
-        obj.getData();
+        assertThrows(IllegalStateException.class,
+                obj::getData);
+
+    }
+
+
+    @Test
+    public void testAccessAfterReturn() throws Exception {
+        final TestObject obj = pool.borrowObject(KEY1);
+        assertNotNull(obj);
+
+        // Make sure proxied methods are working
+        obj.setData(DATA1);
+        assertEquals(DATA1, obj.getData());
+
+        pool.returnObject(KEY1, obj);
+
+        assertNotNull(obj);
+        assertThrows(IllegalStateException.class,
+                obj::getData);
+    }
+
+    @Test
+    public void testBorrowObject() throws Exception {
+        final TestObject obj = pool.borrowObject(KEY1);
+        assertNotNull(obj);
+
+        // Make sure proxied methods are working
+        obj.setData(DATA1);
+        assertEquals(DATA1, obj.getData());
+
+        pool.returnObject(KEY1, obj);
     }
 
 
@@ -120,45 +179,31 @@ public abstract class BaseTestProxiedKeyedObjectPool {
     }
 
 
-    @Test(expected=IllegalStateException.class)
-    public void testPassThroughMethods02() throws Exception {
+    @Test
+    public void testPassThroughMethods02() {
         pool.close();
-        pool.addObject(KEY1);
+        assertThrows(IllegalStateException.class,
+                () -> pool.addObject(KEY1));
     }
 
-    private static class TestKeyedObjectFactory extends
-            BaseKeyedPooledObjectFactory<String,TestObject> {
+    @Test
+    public void testUsageTracking() throws Exception {
+        final TestObject obj = pool.borrowObject(KEY1);
+        assertNotNull(obj);
 
-        @Override
-        public TestObject create(final String key) throws Exception {
-            return new TestObjectImpl();
-        }
-        @Override
-        public PooledObject<TestObject> wrap(final TestObject value) {
-            return new DefaultPooledObject<>(value);
-        }
-    }
+        // Use the object to trigger collection of last used stack trace
+        obj.setData(DATA1);
 
+        // Sleep long enough for the object to be considered abandoned
+        Thread.sleep(ABANDONED_TIMEOUT_SECS.plusSeconds(2).toMillis());
 
-    protected interface TestObject {
-        String getData();
-        void setData(String data);
-    }
+        // Borrow another object to trigger the abandoned object processing
+        pool.borrowObject(KEY1);
 
+        final String logOutput = log.getBuffer().toString();
 
-    private static class TestObjectImpl implements TestObject {
-
-        private String data;
-
-        @Override
-        public String getData() {
-            return data;
-        }
-
-        @Override
-        public void setData(final String data) {
-            this.data = data;
-        }
+        assertTrue(logOutput.contains("Pooled object created"));
+        assertTrue(logOutput.contains("The last code to use this object was"));
     }
 
 }

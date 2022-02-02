@@ -17,24 +17,32 @@
 
 package org.apache.commons.pool2;
 
-import static org.junit.Assert.assertFalse;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+
+import java.time.Duration;
 
 import org.apache.commons.pool2.impl.DefaultPooledObject;
 import org.apache.commons.pool2.impl.GenericObjectPool;
 import org.apache.commons.pool2.impl.GenericObjectPoolConfig;
-import org.junit.Ignore;
-import org.junit.Test;
+import org.junit.jupiter.api.Disabled;
+import org.junit.jupiter.api.Test;
 
-@Ignore
+@Disabled
 public class PoolTest {
-    private static final CharSequence COMMONS_POOL_EVICTIONS_TIMER_THREAD_NAME = "commons-pool-EvictionTimer";
-    private static final long EVICTION_PERIOD_IN_MILLIS = 100;
-
     private static class Foo {
     }
-
     private static class PooledFooFactory implements PooledObjectFactory<Foo> {
         private static final long VALIDATION_WAIT_IN_MILLIS = 1000;
+
+        @Override
+        public void activateObject(final PooledObject<Foo> pooledObject) throws Exception {
+        }
+
+        @Override
+        public void destroyObject(final PooledObject<Foo> pooledObject) throws Exception {
+        }
 
         @Override
         public PooledObject<Foo> makeObject() throws Exception {
@@ -42,7 +50,7 @@ public class PoolTest {
         }
 
         @Override
-        public void destroyObject(final PooledObject<Foo> pooledObject) throws Exception {
+        public void passivateObject(final PooledObject<Foo> pooledObject) throws Exception {
         }
 
         @Override
@@ -54,23 +62,23 @@ public class PoolTest {
             }
             return false;
         }
-
-        @Override
-        public void activateObject(final PooledObject<Foo> pooledObject) throws Exception {
-        }
-
-        @Override
-        public void passivateObject(final PooledObject<Foo> pooledObject) throws Exception {
-        }
     }
+
+    private static final CharSequence COMMONS_POOL_EVICTIONS_TIMER_THREAD_NAME = "commons-pool-EvictionTimer";
+
+    private static final long EVICTION_PERIOD_IN_MILLIS = 100;
 
     @Test
     public void testPool() throws Exception {
-        final GenericObjectPoolConfig poolConfig = new GenericObjectPoolConfig();
+        final GenericObjectPoolConfig<Foo> poolConfig = new GenericObjectPoolConfig<>();
         poolConfig.setTestWhileIdle(true /* testWhileIdle */);
         final PooledFooFactory pooledFooFactory = new PooledFooFactory();
         try (GenericObjectPool<Foo> pool = new GenericObjectPool<>(pooledFooFactory, poolConfig)) {
             pool.setTimeBetweenEvictionRunsMillis(EVICTION_PERIOD_IN_MILLIS);
+            assertEquals(EVICTION_PERIOD_IN_MILLIS, pool.getDurationBetweenEvictionRuns().toMillis());
+            assertEquals(EVICTION_PERIOD_IN_MILLIS, pool.getTimeBetweenEvictionRuns().toMillis());
+            pool.setTimeBetweenEvictionRuns(Duration.ofMillis(EVICTION_PERIOD_IN_MILLIS));
+            assertEquals(EVICTION_PERIOD_IN_MILLIS, pool.getTimeBetweenEvictionRuns().toMillis());
             pool.addObject();
             try {
                 Thread.sleep(EVICTION_PERIOD_IN_MILLIS);
@@ -85,7 +93,7 @@ public class PoolTest {
                 continue;
             }
             final String name = thread.getName();
-            assertFalse(name, name.contains(COMMONS_POOL_EVICTIONS_TIMER_THREAD_NAME));
+            assertFalse( name.contains(COMMONS_POOL_EVICTIONS_TIMER_THREAD_NAME),name);
         }
     }
 }

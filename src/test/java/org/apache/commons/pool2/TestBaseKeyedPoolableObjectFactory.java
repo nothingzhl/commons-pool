@@ -16,24 +16,14 @@
  */
 package org.apache.commons.pool2;
 
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import org.apache.commons.pool2.impl.DefaultPooledObject;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 /**
  */
 public class TestBaseKeyedPoolableObjectFactory {
-
-    @Test
-    public void testDefaultMethods() throws Exception {
-        final KeyedPooledObjectFactory<Object,Object> factory = new TestFactory();
-
-        factory.activateObject("key",null); // a no-op
-        factory.passivateObject("key",null); // a no-op
-        factory.destroyObject("key",null); // a no-op
-        assertTrue(factory.validateObject("key",null)); // constant true
-    }
 
     private static class TestFactory
             extends BaseKeyedPooledObjectFactory<Object,Object> {
@@ -45,5 +35,15 @@ public class TestBaseKeyedPoolableObjectFactory {
         public PooledObject<Object> wrap(final Object value) {
             return new DefaultPooledObject<>(value);
         }
+    }
+
+    @Test
+    public void testDefaultMethods() throws Exception {
+        final KeyedPooledObjectFactory<Object,Object> factory = new TestFactory();
+
+        factory.activateObject("key",null); // a no-op
+        factory.passivateObject("key",null); // a no-op
+        factory.destroyObject("key",null); // a no-op
+        assertTrue(factory.validateObject("key",null)); // constant true
     }
 }

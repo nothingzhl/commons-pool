@@ -35,7 +35,7 @@ class BaseProxyHandler<T> {
 
 
     /**
-     * Create a new wrapper for the given pooled object.
+     * Constructs a new wrapper for the given pooled object.
      *
      * @param pooledObject  The object to wrap
      * @param usageTracking The instance, if any (usually the object pool) to
@@ -45,16 +45,6 @@ class BaseProxyHandler<T> {
     BaseProxyHandler(final T pooledObject, final UsageTracking<T> usageTracking) {
         this.pooledObject = pooledObject;
         this.usageTracking = usageTracking;
-    }
-
-
-    /**
-     * Obtain the wrapped, pooled object.
-     *
-     * @return the underlying pooled object
-     */
-    T getPooledObject() {
-        return pooledObject;
     }
 
 
@@ -69,20 +59,6 @@ class BaseProxyHandler<T> {
         final T result = pooledObject;
         pooledObject = null;
         return result;
-    }
-
-
-    /**
-     * Check that the proxy is still valid (i.e. that {@link #disableProxy()}
-     * has not been called).
-     *
-     * @throws IllegalStateException if {@link #disableProxy()} has been called
-     */
-    void validateProxiedObject() {
-        if (pooledObject == null) {
-            throw new IllegalStateException("This object may no longer be " +
-                    "used as it has been returned to the Object Pool.");
-        }
     }
 
 
@@ -105,6 +81,16 @@ class BaseProxyHandler<T> {
 
 
     /**
+     * Gets the wrapped, pooled object.
+     *
+     * @return the underlying pooled object
+     */
+    T getPooledObject() {
+        return pooledObject;
+    }
+
+
+    /**
      * @since 2.4.3
      */
     @Override
@@ -117,5 +103,19 @@ class BaseProxyHandler<T> {
         builder.append(usageTracking);
         builder.append("]");
         return builder.toString();
+    }
+
+
+    /**
+     * Check that the proxy is still valid (i.e. that {@link #disableProxy()}
+     * has not been called).
+     *
+     * @throws IllegalStateException if {@link #disableProxy()} has been called
+     */
+    void validateProxiedObject() {
+        if (pooledObject == null) {
+            throw new IllegalStateException("This object may no longer be " +
+                    "used as it has been returned to the Object Pool.");
+        }
     }
 }

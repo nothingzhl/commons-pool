@@ -17,13 +17,18 @@
 
 package org.apache.commons.pool2.impl;
 
+import static org.junit.jupiter.api.Assertions.assertFalse;
+
+import java.time.Duration;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+
 import org.apache.commons.pool2.BasePooledObjectFactory;
 import org.apache.commons.pool2.PooledObject;
-import org.junit.Assert;
-import org.junit.Test;
+import org.apache.commons.pool2.Waiter;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
 
 /**
  * @author Pavel Kolesov as contributed in POOL-340
@@ -73,7 +78,7 @@ public class TestGenericObjectPoolFactoryCreateFailure {
                     failed.set(true);
                 } else {
                     // just to make sure, borrowObject has started waiting on queue
-                    sleepIgnoreException(1000);
+                    Waiter.sleepQuietly(1000);
                 }
 
                 pool.returnObject(obj);
@@ -85,19 +90,14 @@ public class TestGenericObjectPoolFactoryCreateFailure {
         }
     }
 
+    private static final Duration NEG_ONE_DURATION = Duration.ofMillis(-1);
+
     private static void println(final String msg) {
         // System.out.println(msg);
     }
 
-    private static void sleepIgnoreException(final long millis) {
-        try {
-            Thread.sleep(millis);
-        } catch(final Throwable e) {
-            // ignore
-        }
-    }
-
-    @Test(timeout = 10_000)
+    @Test
+    @Timeout(value = 10_000, unit = TimeUnit.MILLISECONDS)
     public void testBorrowObjectStuck() {
         final SingleObjectFactory factory = new SingleObjectFactory();
         final GenericObjectPoolConfig<Object> config = new GenericObjectPoolConfig<>();
@@ -108,11 +108,11 @@ public class TestGenericObjectPoolFactoryCreateFailure {
         config.setTestOnBorrow(true);
         config.setTestOnReturn(true);
         config.setTestWhileIdle(false);
-        config.setTimeBetweenEvictionRunsMillis(-1);
-        config.setMinEvictableIdleTimeMillis(-1);
-        config.setSoftMinEvictableIdleTimeMillis(-1);
+        config.setTimeBetweenEvictionRuns(NEG_ONE_DURATION);
+        config.setMinEvictableIdleTime(NEG_ONE_DURATION);
+        config.setSoftMinEvictableIdleTime(NEG_ONE_DURATION);
 
-        config.setMaxWaitMillis(-1);
+        config.setMaxWait(NEG_ONE_DURATION);
         try (GenericObjectPool<Object> pool = new GenericObjectPool<>(factory, config)) {
 
             final AtomicBoolean failed = new AtomicBoolean();
@@ -122,7 +122,7 @@ public class TestGenericObjectPoolFactoryCreateFailure {
 
             // wait for object to be created
             while (!factory.created.get()) {
-                sleepIgnoreException(5);
+                Waiter.sleepQuietly(5);
             }
 
             // now borrow
@@ -136,7 +136,7 @@ public class TestGenericObjectPoolFactoryCreateFailure {
                 e.printStackTrace();
             }
 
-            Assert.assertFalse(failed.get());
+            assertFalse(failed.get());
         }
 
     }

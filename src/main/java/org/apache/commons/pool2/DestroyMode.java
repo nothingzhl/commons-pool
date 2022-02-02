@@ -17,20 +17,16 @@
 package org.apache.commons.pool2;
 
 /**
- * This interface may be implemented by an object pool to enable clients (primarily those clients that wrap pools to
- * provide pools with extended features) to provide additional information to the pool relating to object using allowing
- * more informed decisions and reporting to be made regarding abandoned objects.
+ * Destroy context provided to object factories via {@code destroyObject} and {@code invalidateObject} methods. Values
+ * provide information about why the pool is asking for a pooled object to be destroyed.
  *
- * @param <T> The type of object provided by the pool.
- *
- * @since 2.0
+ * @since 2.9.0
  */
-public interface UsageTracking<T> {
+public enum DestroyMode {
 
-    /**
-     * Called every time a pooled object is used to enable the pool to better track borrowed objects.
-     *
-     * @param pooledObject The object that is being used.
-     */
-    void use(T pooledObject);
+    /** Normal destroy. */
+    NORMAL,
+
+    /** Destroy abandoned object. */
+    ABANDONED
 }

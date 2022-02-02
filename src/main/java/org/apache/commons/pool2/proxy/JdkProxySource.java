@@ -35,7 +35,7 @@ public class JdkProxySource<T> implements ProxySource<T> {
 
 
     /**
-     * Create a new proxy source for the given interfaces.
+     * Constructs a new proxy source for the given interfaces.
      *
      * @param classLoader The class loader with which to create the proxy
      * @param interfaces  The interfaces to proxy
@@ -48,24 +48,18 @@ public class JdkProxySource<T> implements ProxySource<T> {
     }
 
 
+    @SuppressWarnings("unchecked") // Cast to T on return.
     @Override
     public T createProxy(final T pooledObject, final UsageTracking<T> usageTracking) {
-        @SuppressWarnings("unchecked")
-        final
-        T proxy = (T) Proxy.newProxyInstance(classLoader, interfaces,
+        return (T) Proxy.newProxyInstance(classLoader, interfaces,
                 new JdkProxyHandler<>(pooledObject, usageTracking));
-        return proxy;
     }
 
 
+    @SuppressWarnings("unchecked")
     @Override
     public T resolveProxy(final T proxy) {
-        @SuppressWarnings("unchecked")
-        final
-        JdkProxyHandler<T> jdkProxyHandler =
-                (JdkProxyHandler<T>) Proxy.getInvocationHandler(proxy);
-        final T pooledObject = jdkProxyHandler.disableProxy();
-        return pooledObject;
+        return ((JdkProxyHandler<T>) Proxy.getInvocationHandler(proxy)).disableProxy();
     }
 
 

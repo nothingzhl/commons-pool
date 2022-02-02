@@ -16,44 +16,25 @@
  */
 package org.apache.commons.pool2.impl;
 
-import static org.junit.Assert.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+
+import java.time.Duration;
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
+import java.util.concurrent.TimeUnit;
 
 import org.apache.commons.pool2.BasePooledObjectFactory;
 import org.apache.commons.pool2.PooledObject;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 public class TestPoolImplUtils {
 
-    @Test
-    public void testFactoryTypeSimple() {
-        final Class<?> result = PoolImplUtils.getFactoryType(SimpleFactory.class);
-        assertEquals(String.class, result);
-    }
-
-    @Test
-    public void testFactoryTypeNotSimple() {
-        final Class<?> result = PoolImplUtils.getFactoryType(NotSimpleFactory.class);
-        assertEquals(Long.class, result);
-    }
-
-    private static class SimpleFactory extends BasePooledObjectFactory<String> {
-        @Override
-        public String create() throws Exception {
-            return null;
-        }
-        @Override
-        public PooledObject<String> wrap(final String obj) {
-            return null;
-        }
-    }
-
     @SuppressWarnings("unused")
-    private abstract static class FactoryAB<A,B>
-            extends BasePooledObjectFactory<B> {
+    private abstract static class FactoryAB<A, B> extends BasePooledObjectFactory<B> {
         // empty by design
     }
 
-    private abstract static class FactoryBA<A,B> extends FactoryAB<B,A> {
+    private abstract static class FactoryBA<A, B> extends FactoryAB<B, A> {
         // empty by design
     }
 
@@ -62,11 +43,11 @@ public class TestPoolImplUtils {
     }
 
     @SuppressWarnings("unused")
-    private abstract static class FactoryDE<D,E> extends FactoryC<D>{
+    private abstract static class FactoryDE<D, E> extends FactoryC<D> {
         // empty by design
     }
 
-    private abstract static class FactoryF<F> extends FactoryDE<Long,F>{
+    private abstract static class FactoryF<F> extends FactoryDE<Long, F> {
         // empty by design
     }
 
@@ -75,9 +56,75 @@ public class TestPoolImplUtils {
         public Long create() throws Exception {
             return null;
         }
+
         @Override
         public PooledObject<Long> wrap(final Long obj) {
             return null;
+        }
+    }
+
+    private static class SimpleFactory extends BasePooledObjectFactory<String> {
+        @Override
+        public String create() throws Exception {
+            return null;
+        }
+
+        @Override
+        public PooledObject<String> wrap(final String obj) {
+            return null;
+        }
+    }
+
+    private static final Instant INSTANT_1 = Instant.ofEpochMilli(1);
+
+    private static final Instant INSTANT_0 = Instant.ofEpochMilli(0);
+
+    @Test
+    public void testFactoryTypeNotSimple() {
+        final Class<?> result = PoolImplUtils.getFactoryType(NotSimpleFactory.class);
+        assertEquals(Long.class, result);
+    }
+
+    @Test
+    public void testFactoryTypeSimple() {
+        final Class<?> result = PoolImplUtils.getFactoryType(SimpleFactory.class);
+        assertEquals(String.class, result);
+    }
+
+    @Test
+    public void testMaxInstants() {
+        assertEquals(INSTANT_1, PoolImplUtils.max(INSTANT_0, INSTANT_1));
+        assertEquals(INSTANT_1, PoolImplUtils.max(INSTANT_1, INSTANT_0));
+        assertEquals(INSTANT_1, PoolImplUtils.max(INSTANT_1, INSTANT_1));
+        assertEquals(INSTANT_0, PoolImplUtils.max(INSTANT_0, INSTANT_0));
+    }
+
+    @Test
+    public void testMinInstants() {
+        assertEquals(INSTANT_0, PoolImplUtils.min(INSTANT_0, INSTANT_1));
+        assertEquals(INSTANT_0, PoolImplUtils.min(INSTANT_1, INSTANT_0));
+        assertEquals(INSTANT_1, PoolImplUtils.min(INSTANT_1, INSTANT_1));
+        assertEquals(INSTANT_0, PoolImplUtils.min(INSTANT_0, INSTANT_0));
+    }
+
+    @Test
+    public void testToChronoUnit() {
+        assertEquals(ChronoUnit.NANOS, PoolImplUtils.toChronoUnit(TimeUnit.NANOSECONDS));
+        assertEquals(ChronoUnit.MICROS, PoolImplUtils.toChronoUnit(TimeUnit.MICROSECONDS));
+        assertEquals(ChronoUnit.MILLIS, PoolImplUtils.toChronoUnit(TimeUnit.MILLISECONDS));
+        assertEquals(ChronoUnit.SECONDS, PoolImplUtils.toChronoUnit(TimeUnit.SECONDS));
+        assertEquals(ChronoUnit.MINUTES, PoolImplUtils.toChronoUnit(TimeUnit.MINUTES));
+        assertEquals(ChronoUnit.HOURS, PoolImplUtils.toChronoUnit(TimeUnit.HOURS));
+        assertEquals(ChronoUnit.DAYS, PoolImplUtils.toChronoUnit(TimeUnit.DAYS));
+    }
+
+    @Test
+    public void testToDuration() {
+        assertEquals(Duration.ZERO, PoolImplUtils.toDuration(0, TimeUnit.MILLISECONDS));
+        assertEquals(Duration.ofMillis(1), PoolImplUtils.toDuration(1, TimeUnit.MILLISECONDS));
+        for (final TimeUnit tu : TimeUnit.values()) {
+            // All TimeUnit should be handled.
+            assertEquals(Duration.ZERO, PoolImplUtils.toDuration(0, tu));
         }
     }
 }

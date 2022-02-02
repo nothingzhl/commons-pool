@@ -32,81 +32,101 @@ import org.apache.commons.pool2.impl.GenericObjectPool;
  *
  */
 public class PerformanceTest {
-    private int logLevel = 0;
+    class PerfTask implements Callable<TaskStats> {
+        final TaskStats taskStats = new TaskStats();
+        long borrowTimeMillis;
+        long returnTimeMillis;
+
+        @Override
+        public TaskStats call() throws Exception {
+               runOnce(); // warmup
+               for (int i = 0; i < nrIterations; i++) {
+                   runOnce();
+                   taskStats.totalBorrowTime += borrowTimeMillis;
+                   taskStats.totalReturnTime += returnTimeMillis;
+                   taskStats.nrSamples++;
+                   if (logLevel >= 2) {
+                       final String name = "thread" + Thread.currentThread().getName();
+                       System.out.println("result " + taskStats.nrSamples + '\t' +
+                               name + '\t' + "borrow time: " + borrowTimeMillis + '\t' +
+                               "return time: " + returnTimeMillis + '\t' + "waiting: " +
+                               taskStats.waiting + '\t' + "complete: " +
+                               taskStats.complete);
+                   }
+               }
+               return taskStats;
+           }
+
+       public void runOnce() {
+        try {
+            taskStats.waiting++;
+            if (logLevel >= 5) {
+                final String name = "thread" + Thread.currentThread().getName();
+                System.out.println(name +
+                        "   waiting: " + taskStats.waiting +
+                        "   complete: " + taskStats.complete);
+            }
+            final long bbeginMillis = System.currentTimeMillis();
+            final Integer o = pool.borrowObject();
+            final long bendMillis = System.currentTimeMillis();
+            taskStats.waiting--;
+
+            if (logLevel >= 3) {
+                final String name = "thread" + Thread.currentThread().getName();
+                System.out.println(name +
+                        "    waiting: " + taskStats.waiting +
+                        "   complete: " + taskStats.complete);
+            }
+
+            final long rbeginMillis = System.currentTimeMillis();
+            pool.returnObject(o);
+            final long rendMillis = System.currentTimeMillis();
+            Thread.yield();
+            taskStats.complete++;
+            borrowTimeMillis = bendMillis - bbeginMillis;
+            returnTimeMillis = rendMillis - rbeginMillis;
+        } catch (final Exception e) {
+            e.printStackTrace();
+        }
+    }
+    }
+    private static class TaskStats {
+        public int waiting;
+        public int complete;
+        public long totalBorrowTime;
+        public long totalReturnTime;
+        public int nrSamples;
+    }
+
+    public static void main(final String[] args) {
+        final PerformanceTest test = new PerformanceTest();
+        test.setLogLevel(0);
+        System.out.println("Increase threads");
+        test.run(1,  50,  5,  5);
+        test.run(1, 100,  5,  5);
+        test.run(1, 200,  5,  5);
+        test.run(1, 400,  5,  5);
+
+        System.out.println("Increase threads & poolSize");
+        test.run(1,  50,  5,  5);
+        test.run(1, 100, 10, 10);
+        test.run(1, 200, 20, 20);
+        test.run(1, 400, 40, 40);
+
+        System.out.println("Increase maxIdle");
+        test.run(1, 400, 40,  5);
+        test.run(1, 400, 40, 40);
+
+//      System.out.println("Show creation/destruction of objects");
+//      test.setLogLevel(4);
+//      test.run(1, 400, 40,  5);
+    }
+
+    private int logLevel;
+
     private int nrIterations = 5;
 
     private GenericObjectPool<Integer> pool;
-
-    public void setLogLevel(final int i) {
-        logLevel = i;
-    }
-
-    private static class TaskStats {
-        public int waiting = 0;
-        public int complete = 0;
-        public long totalBorrowTime = 0;
-        public long totalReturnTime = 0;
-        public int nrSamples = 0;
-    }
-
-    class PerfTask implements Callable<TaskStats> {
-        TaskStats taskStats = new TaskStats();
-        long borrowTime;
-        long returnTime;
-
-        public void runOnce() {
-            try {
-                taskStats.waiting++;
-                if (logLevel >= 5) {
-                    final String name = "thread" + Thread.currentThread().getName();
-                    System.out.println(name +
-                            "   waiting: " + taskStats.waiting +
-                            "   complete: " + taskStats.complete);
-                }
-                final long bbegin = System.currentTimeMillis();
-                final Integer o = pool.borrowObject();
-                final long bend = System.currentTimeMillis();
-                taskStats.waiting--;
-
-                if (logLevel >= 3) {
-                    final String name = "thread" + Thread.currentThread().getName();
-                    System.out.println(name +
-                            "    waiting: " + taskStats.waiting +
-                            "   complete: " + taskStats.complete);
-                }
-
-                final long rbegin = System.currentTimeMillis();
-                pool.returnObject(o);
-                final long rend = System.currentTimeMillis();
-                Thread.yield();
-                taskStats.complete++;
-                borrowTime = bend - bbegin;
-                returnTime = rend - rbegin;
-            } catch (final Exception e) {
-                e.printStackTrace();
-            }
-        }
-
-       @Override
-    public TaskStats call() throws Exception {
-           runOnce(); // warmup
-           for (int i = 0; i < nrIterations; i++) {
-               runOnce();
-               taskStats.totalBorrowTime += borrowTime;
-               taskStats.totalReturnTime += returnTime;
-               taskStats.nrSamples++;
-               if (logLevel >= 2) {
-                   final String name = "thread" + Thread.currentThread().getName();
-                   System.out.println("result " + taskStats.nrSamples + '\t' +
-                           name + '\t' + "borrow time: " + borrowTime + '\t' +
-                           "return time: " + returnTime + '\t' + "waiting: " +
-                           taskStats.waiting + '\t' + "complete: " +
-                           taskStats.complete);
-               }
-           }
-           return taskStats;
-       }
-    }
 
     private void run(final int iterations, final int nrThreads, final int maxTotal, final int maxIdle) {
         this.nrIterations = iterations;
@@ -151,9 +171,7 @@ public class PerformanceTest {
                 TaskStats taskStats = null;
                 try {
                     taskStats = future.get();
-                } catch (final InterruptedException e) {
-                    e.printStackTrace();
-                } catch (final ExecutionException e) {
+                } catch (final InterruptedException | ExecutionException e) {
                     e.printStackTrace();
                 }
                 if (taskStats != null) {
@@ -182,27 +200,7 @@ public class PerformanceTest {
         threadPool.shutdown();
     }
 
-    public static void main(final String[] args) {
-        final PerformanceTest test = new PerformanceTest();
-        test.setLogLevel(0);
-        System.out.println("Increase threads");
-        test.run(1,  50,  5,  5);
-        test.run(1, 100,  5,  5);
-        test.run(1, 200,  5,  5);
-        test.run(1, 400,  5,  5);
-
-        System.out.println("Increase threads & poolSize");
-        test.run(1,  50,  5,  5);
-        test.run(1, 100, 10, 10);
-        test.run(1, 200, 20, 20);
-        test.run(1, 400, 40, 40);
-
-        System.out.println("Increase maxIdle");
-        test.run(1, 400, 40,  5);
-        test.run(1, 400, 40, 40);
-
-//      System.out.println("Show creation/destruction of objects");
-//      test.setLogLevel(4);
-//      test.run(1, 400, 40,  5);
+    public void setLogLevel(final int i) {
+        logLevel = i;
     }
 }

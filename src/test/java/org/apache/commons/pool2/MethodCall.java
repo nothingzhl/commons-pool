@@ -17,9 +17,10 @@
 
 package org.apache.commons.pool2;
 
-import java.util.List;
-import java.util.Collections;
 import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
+import java.util.Objects;
 
 /**
  * Holds method names, parameters, and return values for tracing method calls.
@@ -31,14 +32,6 @@ public class MethodCall {
 
     public MethodCall(final String name) {
         this(name, null);
-    }
-
-    public MethodCall(final String name, final Object param) {
-        this(name, Collections.singletonList(param));
-    }
-
-    public MethodCall(final String name, final Object param1, final Object param2) {
-        this(name, Arrays.asList(new Object[] {param1, param2}));
     }
 
     public MethodCall(final String name, final List<Object> params) {
@@ -53,25 +46,12 @@ public class MethodCall {
         }
     }
 
-    public String getName() {
-        return name;
+    public MethodCall(final String name, final Object param) {
+        this(name, Collections.singletonList(param));
     }
 
-    public List<Object> getParams() {
-        return params;
-    }
-
-    public Object getReturned() {
-        return returned;
-    }
-
-    public void setReturned(final Object returned) {
-        this.returned = returned;
-    }
-
-    public MethodCall returned(final Object obj) {
-        setReturned(obj);
-        return this;
+    public MethodCall(final String name, final Object param1, final Object param2) {
+        this(name, Arrays.asList(param1, param2));
     }
 
     @Override
@@ -85,17 +65,25 @@ public class MethodCall {
 
         final MethodCall that = (MethodCall)o;
 
-        if (name != null ? !name.equals(that.name) : that.name != null) {
+        if (!Objects.equals(name, that.name)) {
             return false;
         }
-        if (params != null ? !params.equals(that.params) : that.params != null) {
+        if (!Objects.equals(params, that.params)) {
             return false;
         }
-        if (returned != null ? !returned.equals(that.returned) : that.returned != null) {
-            return false;
-        }
+        return Objects.equals(returned, that.returned);
+    }
 
-        return true;
+    public String getName() {
+        return name;
+    }
+
+    public List<Object> getParams() {
+        return params;
+    }
+
+    public Object getReturned() {
+        return returned;
     }
 
     @Override
@@ -105,6 +93,15 @@ public class MethodCall {
         result = 29 * result + (params != null ? params.hashCode() : 0);
         result = 29 * result + (returned != null ? returned.hashCode() : 0);
         return result;
+    }
+
+    public MethodCall returned(final Object obj) {
+        setReturned(obj);
+        return this;
+    }
+
+    public void setReturned(final Object returned) {
+        this.returned = returned;
     }
 
     @Override

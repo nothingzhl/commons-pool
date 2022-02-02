@@ -16,36 +16,35 @@
  */
 package org.apache.commons.pool2.impl;
 
-import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.junit.runners.Parameterized;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.PrintWriter;
 import java.io.StringWriter;
+import java.util.stream.Stream;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 
-@RunWith(Parameterized.class)
 public class CallStackTest {
 
-    private final CallStack stack;
+    public static Stream<Arguments> data() {
+        // @formatter:off
+        return Stream.of(
+                Arguments.arguments(new ThrowableCallStack("Test", false)),
+                Arguments.arguments(new ThrowableCallStack("yyyy-MM-dd'T'HH:mm:ss.SSSXXX", true)),
+                Arguments.arguments(new SecurityManagerCallStack("Test", false)),
+                Arguments.arguments(new SecurityManagerCallStack("yyyy-MM-dd'T'HH:mm:ss.SSSXXX", true))
+        );
+        // @formatter:on
+    }
+
     private final StringWriter writer = new StringWriter();
 
-    public CallStackTest(final CallStack stack) {
-        this.stack = stack;
-    }
-
-    @Parameterized.Parameters
-    public static Object[] data() {
-        return new Object[]{
-            new ThrowableCallStack("Test", false),
-            new SecurityManagerCallStack("Test", false)
-        };
-    }
-
-    @Test
-    public void testPrintClearedStackTraceIsNoOp() throws Exception {
+    @ParameterizedTest
+    @MethodSource("data")
+    public void testPrintClearedStackTraceIsNoOp(final CallStack stack) {
         stack.fillInStackTrace();
         stack.clear();
         stack.printStackTrace(new PrintWriter(writer));
@@ -53,8 +52,9 @@ public class CallStackTest {
         assertEquals("", stackTrace);
     }
 
-    @Test
-    public void testPrintFilledStackTrace() throws Exception {
+    @ParameterizedTest
+    @MethodSource("data")
+    public void testPrintFilledStackTrace(final CallStack stack) {
         stack.fillInStackTrace();
         stack.printStackTrace(new PrintWriter(writer));
         final String stackTrace = writer.toString();
