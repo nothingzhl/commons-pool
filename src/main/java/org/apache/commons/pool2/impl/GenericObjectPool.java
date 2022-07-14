@@ -16,6 +16,8 @@
  */
 package org.apache.commons.pool2.impl;
 
+import org.apache.commons.pool2.*;
+
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Map;
@@ -24,16 +26,6 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
-
-import org.apache.commons.pool2.DestroyMode;
-import org.apache.commons.pool2.ObjectPool;
-import org.apache.commons.pool2.PoolUtils;
-import org.apache.commons.pool2.PooledObject;
-import org.apache.commons.pool2.PooledObjectFactory;
-import org.apache.commons.pool2.PooledObjectState;
-import org.apache.commons.pool2.SwallowedExceptionListener;
-import org.apache.commons.pool2.TrackedUse;
-import org.apache.commons.pool2.UsageTracking;
 
 /**
  * A configurable {@link ObjectPool} implementation.
@@ -85,15 +77,7 @@ public class GenericObjectPool<T> extends BaseGenericObjectPool<T>
     // JMX specific attributes
     private static final String ONAME_BASE =
         "org.apache.commons.pool2:type=GenericObjectPool,name=";
-
-    private volatile String factoryType;
-
-    private volatile int maxIdle = GenericObjectPoolConfig.DEFAULT_MAX_IDLE;
-
-    private volatile int minIdle = GenericObjectPoolConfig.DEFAULT_MIN_IDLE;
-
     private final PooledObjectFactory<T> factory;
-
     /*
      * All of the objects currently associated with this pool in any state. It
      * excludes objects that have been destroyed. The size of
@@ -103,7 +87,6 @@ public class GenericObjectPool<T> extends BaseGenericObjectPool<T>
      */
     private final Map<IdentityWrapper<T>, PooledObject<T>> allObjects =
         new ConcurrentHashMap<>();
-
     /*
      * The combined count of the currently created objects and those in the
      * process of being created. Under load, it may exceed {@link #_maxActive}
@@ -112,12 +95,12 @@ public class GenericObjectPool<T> extends BaseGenericObjectPool<T>
      * {@link #_maxActive} objects created at any one time.
      */
     private final AtomicLong createCount = new AtomicLong();
-
-    private long makeObjectCount;
-
     private final Object makeObjectCountLock = new Object();
-
     private final LinkedBlockingDeque<PooledObject<T>> idleObjects;
+    private volatile String factoryType;
+    private volatile int maxIdle = GenericObjectPoolConfig.DEFAULT_MAX_IDLE;
+    private volatile int minIdle = GenericObjectPoolConfig.DEFAULT_MIN_IDLE;
+    private long makeObjectCount;
 
     /**
      * Creates a new {@code GenericObjectPool} using defaults from
@@ -274,11 +257,20 @@ public class GenericObjectPool<T> extends BaseGenericObjectPool<T>
      * @since 2.10.0
      */
     public T borrowObject(final Duration borrowMaxWaitDuration) throws Exception {
+
+        // 判断对应的对象吃是否是open的
         assertOpen();
 
+        /**
+         * 1.ac不为空
+         * 2.ac的removeAbandonedOnBorrow属性为true
+         * 3.当前空闲对象的数量 < 2
+         * 4.当前活跃对象的数量 >（对象池最大数量-3）
+         */
         final AbandonedConfig ac = this.abandonedConfig;
-        if (ac != null && ac.getRemoveAbandonedOnBorrow() && (getNumIdle() < 2) &&
-                (getNumActive() > getMaxTotal() - 3)) {
+        if (ac != null && ac.getRemoveAbandonedOnBorrow() && (getNumIdle() < 2) && (getNumActive()
+            > getMaxTotal() - 3)) {
+            // 处理对象
             removeAbandoned(ac);
         }
 
@@ -293,7 +285,11 @@ public class GenericObjectPool<T> extends BaseGenericObjectPool<T>
 
         while (p == null) {
             create = false;
+
+            // 此处利用blockingDeque来保证多线程的安全
             p = idleObjects.pollFirst();
+
+            // 开始创建
             if (p == null) {
                 p = create();
                 if (p != null) {
@@ -543,6 +539,7 @@ public class GenericObjectPool<T> extends BaseGenericObjectPool<T>
             }
 
             // Do not block more if maxWaitTimeMillis is set.
+            // 超时时间的判断
             if (create == null &&
                 (localMaxWaitTimeMillis > 0 &&
                  System.currentTimeMillis() - localStartTimeMillis >= localMaxWaitTimeMillis)) {
@@ -556,6 +553,7 @@ public class GenericObjectPool<T> extends BaseGenericObjectPool<T>
 
         final PooledObject<T> p;
         try {
+            // 创建对象
             p = factory.makeObject();
             if (getTestOnCreate() && !factory.validateObject(p)) {
                 createCount.decrementAndGet();
@@ -820,6 +818,24 @@ public class GenericObjectPool<T> extends BaseGenericObjectPool<T>
     }
 
     /**
+     * Sets the cap on the number of "idle" instances in the pool. If maxIdle
+     * is set too low on heavily loaded systems it is possible you will see
+     * objects being destroyed and almost immediately new objects being created.
+     * This is a result of the active threads momentarily returning objects
+     * faster than they are requesting them, causing the number of idle
+     * objects to rise above maxIdle. The best value for maxIdle for heavily
+     * loaded system will vary but the default is a good starting point.
+     *
+     * @param maxIdle The cap on the number of "idle" instances in the pool. Use a
+     *                negative value to indicate an unlimited number of idle
+     *                instances
+     * @see #getMaxIdle
+     */
+    public void setMaxIdle(final int maxIdle) {
+        this.maxIdle = maxIdle;
+    }
+
+    /**
      * Gets the target for the minimum number of idle objects to maintain in
      * the pool. This setting only has an effect if it is positive and
      * {@link #getDurationBetweenEvictionRuns()} is greater than zero. If this
@@ -843,6 +859,26 @@ public class GenericObjectPool<T> extends BaseGenericObjectPool<T>
             return maxIdleSave;
         }
         return minIdle;
+    }
+
+    /**
+     * Sets the target for the minimum number of idle objects to maintain in
+     * the pool. This setting only has an effect if it is positive and
+     * {@link #getDurationBetweenEvictionRuns()} is greater than zero. If this
+     * is the case, an attempt is made to ensure that the pool has the required
+     * minimum number of instances during idle object eviction runs.
+     * <p>
+     * If the configured value of minIdle is greater than the configured value
+     * for maxIdle then the value of maxIdle will be used instead.
+     * </p>
+     *
+     * @param minIdle The minimum number of objects.
+     * @see #getMinIdle()
+     * @see #getMaxIdle()
+     * @see #getDurationBetweenEvictionRuns()
+     */
+    public void setMinIdle(final int minIdle) {
+        this.minIdle = minIdle;
     }
 
     @Override
@@ -960,6 +996,7 @@ public class GenericObjectPool<T> extends BaseGenericObjectPool<T>
     public Set<DefaultPooledObjectInfo> listAllObjects() {
         return allObjects.values().stream().map(DefaultPooledObjectInfo::new).collect(Collectors.toSet());
     }
+
     /**
      * Tries to ensure that {@link #getMinIdle()} idle instances are available
      * in the pool.
@@ -983,6 +1020,7 @@ public class GenericObjectPool<T> extends BaseGenericObjectPool<T>
     @SuppressWarnings("resource") // PrintWriter is managed elsewhere
     private void removeAbandoned(final AbandonedConfig abandonedConfig) {
         // Generate a list of abandoned objects to remove
+        // 生成一个remove列表
         final ArrayList<PooledObject<T>> remove = createRemoveList(abandonedConfig, allObjects);
         // Now remove the abandoned objects
         remove.forEach(pooledObject -> {
@@ -1108,48 +1146,6 @@ public class GenericObjectPool<T> extends BaseGenericObjectPool<T>
         setMaxIdle(conf.getMaxIdle());
         setMinIdle(conf.getMinIdle());
         setMaxTotal(conf.getMaxTotal());
-    }
-
-    /**
-     * Sets the cap on the number of "idle" instances in the pool. If maxIdle
-     * is set too low on heavily loaded systems it is possible you will see
-     * objects being destroyed and almost immediately new objects being created.
-     * This is a result of the active threads momentarily returning objects
-     * faster than they are requesting them, causing the number of idle
-     * objects to rise above maxIdle. The best value for maxIdle for heavily
-     * loaded system will vary but the default is a good starting point.
-     *
-     * @param maxIdle
-     *            The cap on the number of "idle" instances in the pool. Use a
-     *            negative value to indicate an unlimited number of idle
-     *            instances
-     *
-     * @see #getMaxIdle
-     */
-    public void setMaxIdle(final int maxIdle) {
-        this.maxIdle = maxIdle;
-    }
-
-    /**
-     * Sets the target for the minimum number of idle objects to maintain in
-     * the pool. This setting only has an effect if it is positive and
-     * {@link #getDurationBetweenEvictionRuns()} is greater than zero. If this
-     * is the case, an attempt is made to ensure that the pool has the required
-     * minimum number of instances during idle object eviction runs.
-     * <p>
-     * If the configured value of minIdle is greater than the configured value
-     * for maxIdle then the value of maxIdle will be used instead.
-     * </p>
-     *
-     * @param minIdle
-     *            The minimum number of objects.
-     *
-     * @see #getMinIdle()
-     * @see #getMaxIdle()
-     * @see #getDurationBetweenEvictionRuns()
-     */
-    public void setMinIdle(final int minIdle) {
-        this.minIdle = minIdle;
     }
 
     @Override
