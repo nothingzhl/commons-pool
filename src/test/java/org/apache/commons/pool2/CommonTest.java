@@ -42,11 +42,11 @@ public class CommonTest {
         for (int i = 0; i < 8; i++) {
             System.out.print("borrow " + i);
             buffer[i] = pool.borrowObject();
-            buffer[i].append("string buffer " + i);
+            buffer[i].append("string buffer ").append(i);
             printPoolStatus(pool);
         }
         // 如果 borrow 第 9 个，会阻塞
-        //        buffer[8] = pool.borrowObject();
+        buffer[8] = pool.borrowObject();
         for (int i = 0; i < 8; i++) {
             System.out.print("return " + i);
             pool.returnObject(buffer[i]);

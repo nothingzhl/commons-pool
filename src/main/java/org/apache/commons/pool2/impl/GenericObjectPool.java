@@ -277,7 +277,7 @@ public class GenericObjectPool<T> extends BaseGenericObjectPool<T>
         PooledObject<T> p = null;
 
         // Get local copy of current config so it is consistent for entire
-        // method execution
+        // method execution(用完; 花光; 耗尽)
         final boolean blockWhenExhausted = getBlockWhenExhausted();
 
         boolean create;
@@ -286,7 +286,6 @@ public class GenericObjectPool<T> extends BaseGenericObjectPool<T>
         while (p == null) {
             create = false;
 
-            // 此处利用blockingDeque来保证多线程的安全
             p = idleObjects.pollFirst();
 
             // 开始创建
@@ -299,6 +298,7 @@ public class GenericObjectPool<T> extends BaseGenericObjectPool<T>
             if (blockWhenExhausted) {
                 if (p == null) {
                     if (borrowMaxWaitDuration.isNegative()) {
+                        // 此处利用blockingDeque来保证多线程的安全
                         p = idleObjects.takeFirst();
                     } else {
                         p = idleObjects.pollFirst(borrowMaxWaitDuration);
